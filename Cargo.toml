@@ -1,0 +1,19 @@
+[package]
+name = "weather_wallpaper"
+version = "0.1.0"
+edition = "2021"
+authors = ["Josh Walker"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+wallpaper = "3.2.0"
+dirs = "4.0.0"
+serde = { version = "1.0", features = ["derive"] }
+reqwest = { version = "0.11", features = ["json"] }
+tokio = { version = "1", features = ["full"] } 
+regex = "1.6.0"
+fastrand = "1.7.0"
+# egui = "0.18.1"
+# eframe = "0.18.0"
+console = "0.15.0"

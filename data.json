@@ -1,0 +1,33 @@
+{
+    "location":
+    {
+        "name":"Broseley",
+        "region":"Shropshire",
+        "country":"United Kingdom",
+        "lat":52.61,
+        "lon":-2.48,
+        "tz_id":"Europe/London",
+        "localtime_epoch": 1658101799,
+        "localtime":"2022-07-18 0:49"
+    },
+    "current":
+    {
+        "last_updated":"2022-07-18 00:45",
+        "temp_c":19.0,
+        "is_day":0,
+
+        "condition":
+        {
+            "text":"Clear",
+            "icon":"//cdn.weatherapi.com/weather/64x64/night/113.png",
+            "code":1000
+        },
+        
+        "wind_mph":2.5,
+        "precip_mm":0.0,
+        "humidity":64,
+        "cloud":0,
+        "vis_miles":6.0,
+        "uv":1.0
+    }
+}
