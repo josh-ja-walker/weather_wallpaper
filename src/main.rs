@@ -6,6 +6,8 @@ use wallpaper;
 use console::Term;
 
 const CHECK_INTERVAL_SEC: u64 = 15 * 60; 
+
+
 fn main() 
 {
     let wallpaper_dir: PathBuf = files::get_wallpaper_dir();
