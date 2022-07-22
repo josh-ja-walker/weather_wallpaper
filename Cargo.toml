@@ -18,3 +18,4 @@ fastrand = "1.7.0"
 # eframe = "0.18.0"
 console = "0.15.0"
 winconsole = { version = "0.11.1", features = ["window"] } 
+more-wallpapers = { version = "0.1.1", features = ["wallpaper", "rand"] }

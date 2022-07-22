@@ -1,44 +1,56 @@
 mod weather;
 mod files;
 
-use std::{fs, path::PathBuf, vec, thread, time, process, io};
+use std::{fs, path::PathBuf, vec, thread, time, io};
 
-use wallpaper;
+// use wallpaper;
 use console::Term;
 use winconsole::window;
 
-const CHANGE_INTERVAL: u64 = 15 * 60; 
-const SHOW_TIME: u64 = 10; 
-
+const SHOW_TIME: u64 = 5; 
+use more_wallpapers;
 
 fn main() 
 {
-    let wallpaper_dir: PathBuf = files::get_wallpaper_dir();
+    let update_interval: u64 = (60.0 * get_input("Enter time between updating (in minutes): ").parse::<f64>().unwrap_or(15.0)) as u64;
+    if update_interval == (15 * 60) || update_interval == 0 { println!("Set update time to 15 min"); }
     
-    println!("Rename files?: Y/N");
-    let mut inp = String::new();            
-    io::stdin().read_line(&mut inp).unwrap();
-    inp = inp.trim().to_string();
+    let hide_window: bool = get_input("Hide the window? Y/N: ").to_ascii_lowercase() == "y";    
 
-    if inp.to_ascii_lowercase() == "y"
+    let mut popup: bool = false;
+    if hide_window 
+    {
+        popup = get_input("Show window when refreshed? Y/N: ").to_ascii_lowercase() == "y";    
+    }
+
+    let wallpaper_dir: PathBuf = files::get_wallpaper_dir();
+
+    files::move_default_wallpapers(&wallpaper_dir);
+
+    let rename_inp = get_input("\nRename files?: Y/N");
+    if rename_inp.to_ascii_lowercase() == "y"
     {
         files::rename_files(&wallpaper_dir);
     }
     
     Term::stdout().clear_screen().unwrap();
     
-    let wallpapers: Vec<fs::DirEntry> = files::get_valid_wallpapers(&wallpaper_dir);
+    let mut wallpapers: Vec<fs::DirEntry> = files::get_valid_wallpapers(&wallpaper_dir);
     
-    if wallpapers.len() <= 0 {
-        println!("no compatible images in {}", wallpaper_dir.to_str().unwrap());
-        process::exit(1);
+    while wallpapers.len() <= 0 
+    {
+        get_input(&format!("Add compatible wallpapers (png, jpg or bmp) to {}", wallpaper_dir.to_str().unwrap()));
+        wallpapers = files::get_valid_wallpapers(&wallpaper_dir);
     }
     
     Term::stdout().clear_screen().unwrap();
     
     loop
     {
-        window::show(true);
+        if popup 
+        {
+            window::show(popup);
+        }
         
         let mut weather_tags: Vec<&str> = vec![];
         weather::set_tags(&mut weather_tags);
@@ -48,13 +60,35 @@ fn main()
         let ref chosen_wallpaper_path = suitable_paths[files::get_rand_index(&suitable_paths)];
         println!("Chosen: {}", chosen_wallpaper_path.file_name().unwrap().to_str().unwrap());
         
-        wallpaper::set_from_path(chosen_wallpaper_path.to_str().unwrap()).unwrap();
-        
+        // wallpaper::set_from_path(chosen_wallpaper_path.to_str().unwrap()).unwrap();
+        more_wallpapers::set_random_wallpapers_from_vec(suitable_paths, more_wallpapers::Mode::Center).unwrap();
+
         thread::sleep(time::Duration::from_secs(SHOW_TIME));
-        window::hide();
-        thread::sleep(time::Duration::from_secs(CHANGE_INTERVAL));
+
+        if hide_window 
+        {
+            window::hide();
+        }
+        else 
+        {
+            window::minimize(false, true);
+        }
+
+        thread::sleep(time::Duration::from_secs(update_interval));
         
         Term::stdout().clear_screen().unwrap();
     }
 }
 
+pub fn get_input(msg: &str) -> String
+{
+    println!("{}", msg);
+    let mut inp = String::new();            
+    io::stdin().read_line(&mut inp).unwrap();
+    inp = inp.trim().to_string();
+    return inp;
+}
+
+pub fn title(s: &str) -> String {
+    s[0..1].to_uppercase() + &s[1..]
+}

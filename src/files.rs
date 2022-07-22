@@ -1,5 +1,5 @@
-use std::path::{PathBuf};
-use std::{fs, io, ffi};
+use std::path::{PathBuf, Path};
+use std::{fs, io, ffi, env};
 use regex;
 use dirs::picture_dir;
 
@@ -15,8 +15,28 @@ pub fn get_wallpaper_dir() -> PathBuf
     return wallpaper_dir;
 }
 
-pub fn get_valid_wallpapers(wallpaper_dir: &PathBuf) -> Vec<fs::DirEntry> {
+pub fn move_default_wallpapers(to: &Path) 
+{
+    let default_folder = env::current_exe().unwrap().parent().unwrap().join("Default Wallpapers");
+
+    if !default_folder.exists()
+    {
+        return;
+    }
+
+    let default_wallpapers: Result<Vec<fs::DirEntry>, io::Error> = fs::read_dir(&default_folder).unwrap().collect();
+    let default_wallpapers = default_wallpapers.unwrap();
     
+    for default_wallpaper in default_wallpapers 
+    {
+        fs::rename(default_wallpaper.path(), to.join(default_wallpaper.file_name())).unwrap();
+    }
+
+    fs::remove_dir(default_folder).unwrap();
+}
+
+pub fn get_valid_wallpapers(wallpaper_dir: &PathBuf) -> Vec<fs::DirEntry> 
+{
     let files: Result<Vec<fs::DirEntry>, io::Error> = fs::read_dir(&wallpaper_dir).unwrap().collect();
     let mut files = files.unwrap();
     
@@ -63,27 +83,24 @@ pub fn rename_files(wallpaper_dir: &PathBuf)
         let mut file_name = String::from(i.to_string());
         let mut skip = false;
 
-        print!("Input tags: \n\t");
-        print!("0-Any;  ");
-        print!("1-Sunny;  ");
-        print!("2-Rainy;  ");
-        print!("3-Cloudy;  ");
-        print!("4-Partly Cloudy;  ");
-        print!("5-Hot;  ");
-        print!("6-Cold;  ");
-        print!("7-Windy;  ");
-        print!("8-Foggy;  ");
-        print!("9-Night;  ");
-        print!("10-Clear;  ");
-        print!("11-Next file;  ");
+        println!("0-Any;  ");
+        println!("1-Sunny;  ");
+        println!("2-Rainy;  ");
+        println!("3-Cloudy;  ");
+        println!("4-Partly Cloudy;  ");
+        println!("5-Hot;  ");
+        println!("6-Cold;  ");
+        println!("7-Windy;  ");
+        println!("8-Foggy;  ");
+        println!("9-Night;  ");
+        println!("10-Clear;  ");
+        println!("11-Next file;  ");
         println!("12-Skip renaming;");
+        println!("Input tags: ");
         
         loop
         {
-            let mut inp = String::new();
-            
-            io::stdin().read_line(&mut inp).unwrap();
-            inp = inp.trim().to_string();
+            let inp = crate::get_input("");
 
             if inp == ""
             {

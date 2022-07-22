@@ -119,7 +119,7 @@ pub fn set_tags(weather_tags: &mut Vec<&str>)
     println!("\nCurrent Weather Tags: ");
     for tag in weather_tags 
     {
-        println!("\t{}", tag);
+        println!("\t- {}", crate::title(tag));
     }
     println!();
 
