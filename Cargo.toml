@@ -17,3 +17,4 @@ fastrand = "1.7.0"
 # egui = "0.18.1"
 # eframe = "0.18.0"
 console = "0.15.0"
+winconsole = { version = "0.11.1", features = ["window"] } 
