@@ -3,12 +3,12 @@ mod files;
 
 use std::{fs, path::PathBuf, vec, thread, time, io};
 
-// use wallpaper;
+use wallpaper;
+// use more_wallpapers;
 use console::Term;
 use winconsole::window;
 
 const SHOW_TIME: u64 = 5; 
-use more_wallpapers;
 
 fn main() 
 {
@@ -33,14 +33,15 @@ fn main()
         files::rename_files(&wallpaper_dir);
     }
     
+    get_input("");
     Term::stdout().clear_screen().unwrap();
     
-    let mut wallpapers: Vec<fs::DirEntry> = files::get_valid_wallpapers(&wallpaper_dir);
+    let mut wallpapers: Vec<fs::DirEntry> = files::get_valid_wallpapers(&wallpaper_dir, true);
     
     while wallpapers.len() <= 0 
     {
         get_input(&format!("Add compatible wallpapers (png, jpg or bmp) to {}", wallpaper_dir.to_str().unwrap()));
-        wallpapers = files::get_valid_wallpapers(&wallpaper_dir);
+        wallpapers = files::get_valid_wallpapers(&wallpaper_dir, true);
     }
     
     Term::stdout().clear_screen().unwrap();
@@ -57,8 +58,8 @@ fn main()
         
         let suitable_paths: Vec<PathBuf> = files::get_suitable_wallpapers(&wallpapers, weather_tags);
         
-        let ref chosen_wallpaper_path = suitable_paths[files::get_rand_index(&suitable_paths)];
-        println!("Chosen: {}", chosen_wallpaper_path.file_name().unwrap().to_str().unwrap());
+        // let ref chosen_wallpaper_path = suitable_paths[files::get_rand_index(&suitable_paths)];
+        // println!("Chosen: {}", chosen_wallpaper_path.file_name().unwrap().to_str().unwrap());
         
         // wallpaper::set_from_path(chosen_wallpaper_path.to_str().unwrap()).unwrap();
         more_wallpapers::set_random_wallpapers_from_vec(suitable_paths, more_wallpapers::Mode::Center).unwrap();
@@ -68,10 +69,6 @@ fn main()
         if hide_window 
         {
             window::hide();
-        }
-        else 
-        {
-            window::minimize(false, true);
         }
 
         thread::sleep(time::Duration::from_secs(update_interval));

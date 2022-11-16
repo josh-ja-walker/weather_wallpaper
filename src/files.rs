@@ -17,29 +17,39 @@ pub fn get_wallpaper_dir() -> PathBuf
 
 pub fn move_default_wallpapers(to: &Path) 
 {
+    let to = to.join("Default Wallpapers");
     let default_folder = env::current_exe().unwrap().parent().unwrap().join("Default Wallpapers");
 
-    if !default_folder.exists()
+    if !default_folder.exists() || to.exists()
     {
         return;
     }
-
-    let default_wallpapers: Result<Vec<fs::DirEntry>, io::Error> = fs::read_dir(&default_folder).unwrap().collect();
-    let default_wallpapers = default_wallpapers.unwrap();
     
-    for default_wallpaper in default_wallpapers 
-    {
-        fs::rename(default_wallpaper.path(), to.join(default_wallpaper.file_name())).unwrap();
-    }
-
-    fs::remove_dir(default_folder).unwrap();
+    fs::rename(default_folder, to).unwrap();
 }
 
-pub fn get_valid_wallpapers(wallpaper_dir: &PathBuf) -> Vec<fs::DirEntry> 
+pub fn get_valid_wallpapers(wallpaper_dir: &PathBuf, get_defaults: bool) -> Vec<fs::DirEntry> 
 {
     let files: Result<Vec<fs::DirEntry>, io::Error> = fs::read_dir(&wallpaper_dir).unwrap().collect();
     let mut files = files.unwrap();
+
+    if get_defaults 
+    {
+        let defaults = fs::read_dir(&wallpaper_dir.join("Default Wallpapers"));
+
+        if defaults.is_ok()  
+        {
+            let defaults = defaults.unwrap().collect();
+            match defaults 
+            {
+                Ok(mut defaults) => files.append(&mut defaults),
+                Err(_) => (),
+            }
+        }
+    }
     
+    println!("Valid Files:");
+
     let mut i = 0;
     while i < files.len()
     {
@@ -48,9 +58,12 @@ pub fn get_valid_wallpapers(wallpaper_dir: &PathBuf) -> Vec<fs::DirEntry>
         let file_name = file.file_name();
         let file_name = file_name.to_str().unwrap();
         
-        if !check_extension(file.path())
+        println!("\t{}", file_name);
+        
+        let ext_valid = check_extension(file.path());
+        if ext_valid
         {
-            println!("removed {0}. extension is {1}valid", file_name, if !check_extension(file.path()) {"in"} else {""});
+            println!("removed {0}. extension is {1}valid", file_name, if ext_valid {"in"} else {""});
             files.remove(i);
         }
         else
@@ -70,7 +83,7 @@ fn check_extension(file_path: PathBuf) -> bool
 
 pub fn rename_files(wallpaper_dir: &PathBuf) 
 {
-    let files = get_valid_wallpapers(wallpaper_dir);
+    let files = get_valid_wallpapers(wallpaper_dir, false);
     
     for i in 0..files.len()
     {
@@ -176,13 +189,14 @@ pub fn get_suitable_wallpapers(valid_files: &Vec<fs::DirEntry>, weather_tags: Ve
     
     let mut max_tags: usize = 0;
     
+    // println!("", file_name);
     for file in valid_files
     {
-        // let re: regex::RegexSet = regex::RegexSet::new(&weather_tags).unwrap();
-        
         let file_name = file.file_name();
         let file_name = file_name.to_str().unwrap();
         
+        println!("{}", file_name);
+
         let num_matches = re.matches(&file_name).iter().count();
 
         if night_re.is_match(&file_name) == weather_tags.contains(&"night") 
@@ -197,18 +211,11 @@ pub fn get_suitable_wallpapers(valid_files: &Vec<fs::DirEntry>, weather_tags: Ve
                 }
     
                 suitable_paths.push(file.path());
-    
-                // println!("Suitable with {} tags matched:", max_tags);
-                // for path in suitable_paths.clone() {
-                //     println!("\tfile: {}", path.file_name().unwrap().to_string_lossy());
-                // }
             }     
             else if num_matches == 0 
             {
-                // println!("{}", file_name[0..file_name.len() - 4].to_string());
-
                 let file_name_num = file_name[0..file_name.len() - 4].parse::<i128>();
-
+                
                 match file_name_num {
                     Ok(_) => any_paths.push(file.path()),
                     Err(_error) => (),            
@@ -216,13 +223,20 @@ pub fn get_suitable_wallpapers(valid_files: &Vec<fs::DirEntry>, weather_tags: Ve
             }
         }
     }
-
+    
     suitable_paths.append(&mut any_paths);
+    
+    // println!("Suitable files: ");
+    // for path in suitable_paths.clone() 
+    // {
+    //     println!("\t- {}", path.file_name().unwrap().to_str().unwrap());
+    // }
+
     return suitable_paths;
 }
 
 pub fn get_rand_index <T> (suitable_wallpapers: &Vec<T>) -> usize 
 {
     let len: usize = suitable_wallpapers.len();
-    return fastrand::usize(..len);
+    return fastrand::usize(0..len);
 }

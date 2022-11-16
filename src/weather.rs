@@ -69,7 +69,7 @@ pub fn set_tags(weather_tags: &mut Vec<&str>)
         weather_tags.push("wind");
     }
 
-    if weather_api.current.temp_c < 3.0 
+    if weather_api.current.temp_c < 5.0 
     {
         weather_tags.push("cold");
     }
