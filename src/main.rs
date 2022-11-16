@@ -8,7 +8,7 @@ use wallpaper;
 use console::Term;
 use winconsole::window;
 
-const SHOW_TIME: u64 = 5; 
+const SHOW_TIME: u64 = 2; 
 
 fn main() 
 {
