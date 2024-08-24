@@ -3,15 +3,14 @@ mod files;
 
 use std::{fs, path::PathBuf, vec, thread, time, io};
 
-use wallpaper;
+// use wallpaper;
 // use more_wallpapers;
 use console::Term;
 use winconsole::window;
 
 const SHOW_TIME: u64 = 2; 
 
-fn main() 
-{
+fn main() {
     let update_interval: u64 = (60.0 * get_input("Enter time between updating (in minutes): ").parse::<f64>().unwrap_or(15.0)) as u64;
     if update_interval == (15 * 60) || update_interval == 0 { println!("Set update time to 15 min"); }
     
@@ -28,8 +27,7 @@ fn main()
     files::move_default_wallpapers(&wallpaper_dir);
 
     let rename_inp = get_input("\nRename files?: Y/N");
-    if rename_inp.to_ascii_lowercase() == "y"
-    {
+    if rename_inp.to_ascii_lowercase() == "y" {
         files::rename_files(&wallpaper_dir);
     }
     
@@ -38,18 +36,15 @@ fn main()
     
     let mut wallpapers: Vec<fs::DirEntry> = files::get_valid_wallpapers(&wallpaper_dir, true);
     
-    while wallpapers.len() <= 0 
-    {
+    while wallpapers.len() <= 0 {
         get_input(&format!("Add compatible wallpapers (png, jpg or bmp) to {}", wallpaper_dir.to_str().unwrap()));
         wallpapers = files::get_valid_wallpapers(&wallpaper_dir, true);
     }
     
     Term::stdout().clear_screen().unwrap();
     
-    loop
-    {
-        if popup 
-        {
+    loop {
+        if popup {
             window::show(popup);
         }
         
@@ -77,8 +72,7 @@ fn main()
     }
 }
 
-pub fn get_input(msg: &str) -> String
-{
+pub fn get_input(msg: &str) -> String {
     println!("{}", msg);
     let mut inp = String::new();            
     io::stdin().read_line(&mut inp).unwrap();

@@ -43,8 +43,7 @@ struct Condition {
 }
 
 #[tokio::main]
-async fn get_weather() -> Result<WeatherAPI, reqwest::Error> 
-{
+async fn get_weather() -> Result<WeatherAPI, reqwest::Error> {
     let weather_api: WeatherAPI = reqwest::Client::new()
     .get("http://api.weatherapi.com/v1/current.json?key=d89f01f4ac164824b2c194551221707&q=auto:ip&aqi=no")
         .send()
@@ -55,8 +54,7 @@ async fn get_weather() -> Result<WeatherAPI, reqwest::Error>
     Ok(weather_api)
 }
 
-pub fn set_tags(weather_tags: &mut Vec<&str>) 
-{
+pub fn set_tags(weather_tags: &mut Vec<&str>) {
     let weather_api = get_weather().unwrap();
     
     let mut is_clear: bool = true;
@@ -69,56 +67,42 @@ pub fn set_tags(weather_tags: &mut Vec<&str>)
         weather_tags.push("wind");
     }
 
-    if weather_api.current.temp_c < 5.0 
-    {
+    if weather_api.current.temp_c < 5.0  {
         weather_tags.push("cold");
-    }
-    else if weather_api.current.temp_c > ( if weather_api.current.is_day != 0 {25.0} else {21.0} ) 
-    {
+    } else if weather_api.current.temp_c > ( if weather_api.current.is_day != 0 {25.0} else {21.0} ) {
         weather_tags.push("hot");
     }
     
-    if weather_api.current.cloud > 20
-    {
-        if weather_api.current.cloud < 60 
-        {
+    if weather_api.current.cloud > 20 {
+        if weather_api.current.cloud < 60 {
             weather_tags.push("part_cl");
-        } 
-        else 
-        {
+        } else {
             weather_tags.push("cloud");
         }
 
         is_clear = false;
     }
 
-    if weather_api.current.precip_mm > 0.8 
-    {
+    if weather_api.current.precip_mm > 0.8 {
         weather_tags.push("rain");
         is_clear = false;
     }
 
-    if weather_api.current.is_day != 0 
-    {
-        if weather_api.current.uv > 3.75 
-        {
+    if weather_api.current.is_day != 0 {
+        if weather_api.current.uv > 3.75 {
             weather_tags.push("sun");
             is_clear = false;
         }
-    }
-    else 
-    {
+    } else {
         weather_tags.push("night");
     }
 
-    if is_clear 
-    {
+    if is_clear {
         weather_tags.push("clear");
     }
     
     println!("\nCurrent Weather Tags: ");
-    for tag in weather_tags 
-    {
+    for tag in weather_tags {
         println!("\t- {}", crate::title(tag));
     }
     println!();

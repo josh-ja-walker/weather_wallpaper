@@ -3,45 +3,37 @@ use std::{fs, io, ffi, env};
 use regex;
 use dirs::picture_dir;
 
-pub fn get_wallpaper_dir() -> PathBuf 
-{
+pub fn get_wallpaper_dir() -> PathBuf {
     let wallpaper_dir: PathBuf = PathBuf::from(picture_dir().unwrap()).join("Wallpapers (Weather)");
 
-    if !&wallpaper_dir.exists() 
-    {
+    if !&wallpaper_dir.exists() {
         fs::create_dir(&wallpaper_dir.to_str().unwrap()).unwrap();
     }
     
     return wallpaper_dir;
 }
 
-pub fn move_default_wallpapers(to: &Path) 
-{
+pub fn move_default_wallpapers(to: &Path) {
     let to = to.join("Default Wallpapers");
     let default_folder = env::current_exe().unwrap().parent().unwrap().join("Default Wallpapers");
 
-    if !default_folder.exists() || to.exists()
-    {
+    if !default_folder.exists() || to.exists() {
         return;
     }
     
     fs::rename(default_folder, to).unwrap();
 }
 
-pub fn get_valid_wallpapers(wallpaper_dir: &PathBuf, get_defaults: bool) -> Vec<fs::DirEntry> 
-{
+pub fn get_valid_wallpapers(wallpaper_dir: &PathBuf, get_defaults: bool) -> Vec<fs::DirEntry> {
     let files: Result<Vec<fs::DirEntry>, io::Error> = fs::read_dir(&wallpaper_dir).unwrap().collect();
     let mut files = files.unwrap();
 
-    if get_defaults 
-    {
+    if get_defaults {
         let defaults = fs::read_dir(&wallpaper_dir.join("Default Wallpapers"));
 
-        if defaults.is_ok()  
-        {
+        if defaults.is_ok() {
             let defaults = defaults.unwrap().collect();
-            match defaults 
-            {
+            match defaults {
                 Ok(mut defaults) => files.append(&mut defaults),
                 Err(_) => (),
             }
@@ -51,8 +43,7 @@ pub fn get_valid_wallpapers(wallpaper_dir: &PathBuf, get_defaults: bool) -> Vec<
     println!("Valid Files:");
 
     let mut i = 0;
-    while i < files.len()
-    {
+    while i < files.len() {
         let ref file: fs::DirEntry = files[i];
     
         let file_name = file.file_name();
@@ -61,13 +52,10 @@ pub fn get_valid_wallpapers(wallpaper_dir: &PathBuf, get_defaults: bool) -> Vec<
         println!("\t{}", file_name);
         
         let ext_valid = check_extension(file.path());
-        if ext_valid
-        {
+        if ext_valid {
             println!("removed {0}. extension is {1}valid", file_name, if ext_valid {"in"} else {""});
             files.remove(i);
-        }
-        else
-        {
+        } else {
             i += 1;
         }
     }
@@ -75,18 +63,15 @@ pub fn get_valid_wallpapers(wallpaper_dir: &PathBuf, get_defaults: bool) -> Vec<
     return files;
 }
 
-fn check_extension(file_path: PathBuf) -> bool 
-{
+fn check_extension(file_path: PathBuf) -> bool {
     let supported_files_re: regex::Regex = regex::Regex::new(r"(png|jpg|bmp)").unwrap();
     return supported_files_re.is_match(file_path.extension().unwrap_or(ffi::OsStr::new("")).to_str().unwrap());
 }
 
-pub fn rename_files(wallpaper_dir: &PathBuf) 
-{
+pub fn rename_files(wallpaper_dir: &PathBuf) {
     let files = get_valid_wallpapers(wallpaper_dir, false);
     
-    for i in 0..files.len()
-    {
+    for i in 0..files.len() {
         let mut tag_nums: Vec<i32> = vec![];
         let file_name = files[i].file_name();
         let file_name = file_name.to_str().expect("file name cannot be converted to string");
@@ -111,12 +96,10 @@ pub fn rename_files(wallpaper_dir: &PathBuf)
         println!("12-Skip renaming;");
         println!("Input tags: ");
         
-        loop
-        {
+        loop {
             let inp = crate::get_input("");
 
-            if inp == ""
-            {
+            if inp == "" {
                 if tag_nums.is_empty() { skip = true; }
                 break;
             }
@@ -128,26 +111,21 @@ pub fn rename_files(wallpaper_dir: &PathBuf)
                 Err(_) => break,                
             };
             
-            if tag_nums.contains(&inp)
-            {
-                continue;
-            } 
+            if tag_nums.contains(&inp) { continue; }
 
-            match inp 
-            {
+            match inp {
                 0 => {tag_nums.clear(); break},
                 1..=10 => tag_nums.push(inp),
                 12 => return,
                 _ => {skip = true; break}
             }
         }
+        
         if skip { continue; }
         
         tag_nums.sort();
-        for num in tag_nums.clone() 
-        {
-            let tag = match num 
-            {
+        for num in tag_nums.clone() {
+            let tag = match num {
                 1 => "sun",
                 2 => "rain",
                 3 => "cloud",
@@ -166,8 +144,7 @@ pub fn rename_files(wallpaper_dir: &PathBuf)
         
         file_name = format!("{}.{}", file_name, files[i].path().extension().unwrap().to_str().unwrap()); 
 
-        if file_name != files[i].file_name().to_str().unwrap() 
-        {
+        if file_name != files[i].file_name().to_str().unwrap() {
             let to = get_wallpaper_dir()
                 .join(&file_name);
             
@@ -178,8 +155,7 @@ pub fn rename_files(wallpaper_dir: &PathBuf)
     }
 }
 
-pub fn get_suitable_wallpapers(valid_files: &Vec<fs::DirEntry>, weather_tags: Vec<&str>) -> Vec<PathBuf> 
-{
+pub fn get_suitable_wallpapers(valid_files: &Vec<fs::DirEntry>, weather_tags: Vec<&str>) -> Vec<PathBuf> {
     let re: regex::RegexSet = regex::RegexSet::new(&weather_tags).unwrap();
 
     let mut suitable_paths = vec![];
@@ -190,8 +166,7 @@ pub fn get_suitable_wallpapers(valid_files: &Vec<fs::DirEntry>, weather_tags: Ve
     let mut max_tags: usize = 0;
     
     // println!("", file_name);
-    for file in valid_files
-    {
+    for file in valid_files {
         let file_name = file.file_name();
         let file_name = file_name.to_str().unwrap();
         
@@ -199,25 +174,19 @@ pub fn get_suitable_wallpapers(valid_files: &Vec<fs::DirEntry>, weather_tags: Ve
 
         let num_matches = re.matches(&file_name).iter().count();
 
-        if night_re.is_match(&file_name) == weather_tags.contains(&"night") 
-        {
-            if num_matches >= max_tags
-            {
-                if num_matches > max_tags 
-                {
+        if night_re.is_match(&file_name) == weather_tags.contains(&"night") {
+            if num_matches >= max_tags {
+                if num_matches > max_tags {
                     max_tags = num_matches;
-                    
                     suitable_paths.clear();
                 }
     
                 suitable_paths.push(file.path());
-            }     
-            else if num_matches == 0 
-            {
+            } else if num_matches == 0 {
                 let file_name_num = file_name[0..file_name.len() - 4].parse::<i128>();
                 
                 match file_name_num {
-                    Ok(_) => any_paths.push(file.path()),
+                    Ok(_) => suitable_paths.push(file.path()),
                     Err(_error) => (),            
                 };
             }
@@ -235,8 +204,7 @@ pub fn get_suitable_wallpapers(valid_files: &Vec<fs::DirEntry>, weather_tags: Ve
     return suitable_paths;
 }
 
-pub fn get_rand_index <T> (suitable_wallpapers: &Vec<T>) -> usize 
-{
+pub fn get_rand_index <T> (suitable_wallpapers: &Vec<T>) -> usize {
     let len: usize = suitable_wallpapers.len();
     return fastrand::usize(0..len);
 }
