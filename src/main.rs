@@ -1,85 +1,99 @@
 mod weather;
 mod files;
 
-use std::{fs, path::PathBuf, vec, thread, time, io};
+use std::{
+    collections::HashSet, 
+    path::PathBuf, 
+    fmt::{self, Display}, 
+    hash::{Hash, Hasher}, 
+};
 
-// use wallpaper;
-// use more_wallpapers;
-use console::Term;
-use winconsole::window;
+use viuer;    
+use colored::Colorize;
 
-const SHOW_TIME: u64 = 2; 
+use serde::{Deserialize, Serialize};
+
+use files::get_all_wallpapers;
+use weather::get_current_weather;
+
+
+#[derive(Debug, Clone)]
+pub struct Wallpaper {
+    filename: String,
+    path: PathBuf,
+    tags: HashSet<WeatherCond>
+}
+
+impl Eq for Wallpaper {}
+impl PartialEq for Wallpaper {
+    fn eq(&self, other: &Self) -> bool {
+        self.path == other.path
+    }
+}
+
+impl Hash for Wallpaper {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.path.hash(state)
+    }
+}
+
+impl Display for Wallpaper {
+    /* Print name, path and tags of Wallpaper */
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} ({:?})\n tags: {}", 
+            self.filename.bold(), 
+            self.path,
+            self.tags.iter()
+                .map(|w| format!("{w:?}"))
+                .collect::<Vec<String>>()
+                .join(", ")
+        )
+    }
+}
+
+impl Wallpaper {
+    fn render_preview(&self) {
+        let conf = viuer::Config {
+            absolute_offset: false,
+            x: 0,
+            y: 0,
+            width: Some(32),
+            height: Some(18),
+            ..Default::default()
+        };
+
+        let _ = viuer::print_from_file(self.path.to_str().unwrap(), &conf);
+    }
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub struct Weather {
+    condition: WeatherCond,
+    is_day: bool
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+enum WeatherCond {
+    PartCloud,
+    Cloud,
+    Rain,
+    Sun,
+    Fog,
+}
+
 
 fn main() {
-    let update_interval: u64 = (60.0 * get_input("Enter time between updating (in minutes): ").parse::<f64>().unwrap_or(15.0)) as u64;
-    if update_interval == (15 * 60) || update_interval == 0 { println!("Set update time to 15 min"); }
+    let curr_weather = get_current_weather();
+    let suitable_wallpapers = get_suitable_wallpapers(&curr_weather);
     
-    let hide_window: bool = get_input("Hide the window? Y/N: ").to_ascii_lowercase() == "y";    
-
-    let mut popup: bool = false;
-    if hide_window 
-    {
-        popup = get_input("Show window when refreshed? Y/N: ").to_ascii_lowercase() == "y";    
-    }
-
-    let wallpaper_dir: PathBuf = files::get_wallpaper_dir();
-
-    files::move_default_wallpapers(&wallpaper_dir);
-
-    let rename_inp = get_input("\nRename files?: Y/N");
-    if rename_inp.to_ascii_lowercase() == "y" {
-        files::rename_files(&wallpaper_dir);
-    }
-    
-    get_input("");
-    Term::stdout().clear_screen().unwrap();
-    
-    let mut wallpapers: Vec<fs::DirEntry> = files::get_valid_wallpapers(&wallpaper_dir, true);
-    
-    while wallpapers.len() <= 0 {
-        get_input(&format!("Add compatible wallpapers (png, jpg or bmp) to {}", wallpaper_dir.to_str().unwrap()));
-        wallpapers = files::get_valid_wallpapers(&wallpaper_dir, true);
-    }
-    
-    Term::stdout().clear_screen().unwrap();
-    
-    loop {
-        if popup {
-            window::show(popup);
-        }
-        
-        let mut weather_tags: Vec<&str> = vec![];
-        weather::set_tags(&mut weather_tags);
-        
-        let suitable_paths: Vec<PathBuf> = files::get_suitable_wallpapers(&wallpapers, weather_tags);
-        
-        // let ref chosen_wallpaper_path = suitable_paths[files::get_rand_index(&suitable_paths)];
-        // println!("Chosen: {}", chosen_wallpaper_path.file_name().unwrap().to_str().unwrap());
-        
-        // wallpaper::set_from_path(chosen_wallpaper_path.to_str().unwrap()).unwrap();
-        more_wallpapers::set_random_wallpapers_from_vec(suitable_paths, more_wallpapers::Mode::Center).unwrap();
-
-        thread::sleep(time::Duration::from_secs(SHOW_TIME));
-
-        if hide_window 
-        {
-            window::hide();
-        }
-
-        thread::sleep(time::Duration::from_secs(update_interval));
-        
-        Term::stdout().clear_screen().unwrap();
-    }
+    println!("{:?}", suitable_wallpapers);
 }
 
-pub fn get_input(msg: &str) -> String {
-    println!("{}", msg);
-    let mut inp = String::new();            
-    io::stdin().read_line(&mut inp).unwrap();
-    inp = inp.trim().to_string();
-    return inp;
-}
-
-pub fn title(s: &str) -> String {
-    s[0..1].to_uppercase() + &s[1..]
+/* Filter out wallpapers that do not have current weather as tag */
+fn get_suitable_wallpapers(weather: &Weather) -> HashSet<Wallpaper> {
+    get_all_wallpapers()
+        .into_iter()
+        .filter(|w| w.tags.contains(&weather.condition))
+        .collect()
 }

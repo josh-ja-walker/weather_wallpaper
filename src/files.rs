@@ -1,210 +1,97 @@
-use std::path::{PathBuf, Path};
-use std::{fs, io, ffi, env};
-use regex;
+use std::fs;
+use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
+
+use regex::Regex;
 use dirs::picture_dir;
 
-pub fn get_wallpaper_dir() -> PathBuf {
-    let wallpaper_dir: PathBuf = PathBuf::from(picture_dir().unwrap()).join("Wallpapers (Weather)");
+use crate::{Wallpaper, Weather, WeatherCond};
 
+const VALID_EXTS: [&'static str; 3] = ["png", "jpg", "bmp"];
+const SAVED_TAGS_FILE: &str = "./tags.json";
+
+
+/* Retrieve all saved wallpapers */
+pub fn get_all_wallpapers() -> HashSet<Wallpaper> {
+    let files: fs::ReadDir = fs::read_dir(get_wallpaper_dir())
+        .expect("Could not read wallpaper directory");
+
+    let tag_map: HashMap<String, HashSet<WeatherCond>> = load_tag_map();
+
+    files.map(|file| file.unwrap())
+        .filter(|file| is_valid(file)) /* Remove invalid files */
+        .map(|file| load_wallpaper(file, &tag_map)) /* Map to Wallpaper */
+        .collect::<HashSet<Wallpaper>>() /* Collect into vector */
+}
+
+/* Check the file is valid */
+fn is_valid(file: &fs::DirEntry) -> bool {
+    check_extension(file.path())
+}
+
+/* Check the file's extension is valid */
+fn check_extension(file_path: PathBuf) -> bool {
+    let valid_exts: Regex = Regex::new(
+        &format!("r({})", VALID_EXTS.join("|"))).unwrap();
+
+    let file_ext = file_path.extension()
+        .map_or("", |ext| ext.to_str().unwrap());
+ 
+    valid_exts.is_match(&file_ext)
+}
+
+/* Get wallpaper directory (nested in Picture directory) */
+fn get_wallpaper_dir() -> PathBuf {
+    let wallpaper_dir: PathBuf = PathBuf::from(picture_dir().expect("No picture directory found"))
+        .join("weather_wallpapers");
+
+    /* Create wallpaper directory if it doesn't exist */
     if !&wallpaper_dir.exists() {
-        fs::create_dir(&wallpaper_dir.to_str().unwrap()).unwrap();
+        fs::create_dir(wallpaper_dir.clone())
+            .expect("Could not create wallpaper directory");
     }
     
     return wallpaper_dir;
 }
 
-pub fn move_default_wallpapers(to: &Path) {
-    let to = to.join("Default Wallpapers");
-    let default_folder = env::current_exe().unwrap().parent().unwrap().join("Default Wallpapers");
 
-    if !default_folder.exists() || to.exists() {
-        return;
-    }
-    
-    fs::rename(default_folder, to).unwrap();
-}
+/* Load wallpaper from files */
+fn load_wallpaper(file: fs::DirEntry, tag_map: &HashMap<String, HashSet<WeatherCond>>) -> Wallpaper {
+    let filename = file.file_name().into_string().unwrap();
 
-pub fn get_valid_wallpapers(wallpaper_dir: &PathBuf, get_defaults: bool) -> Vec<fs::DirEntry> {
-    let files: Result<Vec<fs::DirEntry>, io::Error> = fs::read_dir(&wallpaper_dir).unwrap().collect();
-    let mut files = files.unwrap();
-
-    if get_defaults {
-        let defaults = fs::read_dir(&wallpaper_dir.join("Default Wallpapers"));
-
-        if defaults.is_ok() {
-            let defaults = defaults.unwrap().collect();
-            match defaults {
-                Ok(mut defaults) => files.append(&mut defaults),
-                Err(_) => (),
-            }
-        }
-    }
-    
-    println!("Valid Files:");
-
-    let mut i = 0;
-    while i < files.len() {
-        let ref file: fs::DirEntry = files[i];
-    
-        let file_name = file.file_name();
-        let file_name = file_name.to_str().unwrap();
-        
-        println!("\t{}", file_name);
-        
-        let ext_valid = check_extension(file.path());
-        if ext_valid {
-            println!("removed {0}. extension is {1}valid", file_name, if ext_valid {"in"} else {""});
-            files.remove(i);
-        } else {
-            i += 1;
-        }
-    }
-    
-    return files;
-}
-
-fn check_extension(file_path: PathBuf) -> bool {
-    let supported_files_re: regex::Regex = regex::Regex::new(r"(png|jpg|bmp)").unwrap();
-    return supported_files_re.is_match(file_path.extension().unwrap_or(ffi::OsStr::new("")).to_str().unwrap());
-}
-
-pub fn rename_files(wallpaper_dir: &PathBuf) {
-    let files = get_valid_wallpapers(wallpaper_dir, false);
-    
-    for i in 0..files.len() {
-        let mut tag_nums: Vec<i32> = vec![];
-        let file_name = files[i].file_name();
-        let file_name = file_name.to_str().expect("file name cannot be converted to string");
-        
-        println!("File: {}", file_name);
-        
-        let mut file_name = String::from(i.to_string());
-        let mut skip = false;
-
-        println!("0-Any;  ");
-        println!("1-Sunny;  ");
-        println!("2-Rainy;  ");
-        println!("3-Cloudy;  ");
-        println!("4-Partly Cloudy;  ");
-        println!("5-Hot;  ");
-        println!("6-Cold;  ");
-        println!("7-Windy;  ");
-        println!("8-Foggy;  ");
-        println!("9-Night;  ");
-        println!("10-Clear;  ");
-        println!("11-Next file;  ");
-        println!("12-Skip renaming;");
-        println!("Input tags: ");
-        
-        loop {
-            let inp = crate::get_input("");
-
-            if inp == "" {
-                if tag_nums.is_empty() { skip = true; }
-                break;
-            }
-
-            let inp = inp.parse::<i32>();
-            
-            let inp = match inp {
-                Ok(inp) => inp,
-                Err(_) => break,                
-            };
-            
-            if tag_nums.contains(&inp) { continue; }
-
-            match inp {
-                0 => {tag_nums.clear(); break},
-                1..=10 => tag_nums.push(inp),
-                12 => return,
-                _ => {skip = true; break}
-            }
-        }
-        
-        if skip { continue; }
-        
-        tag_nums.sort();
-        for num in tag_nums.clone() {
-            let tag = match num {
-                1 => "sun",
-                2 => "rain",
-                3 => "cloud",
-                4 => "part_cl",
-                5 => "hot",
-                6 => "cold",
-                7 => "wind",
-                8 => "fog",
-                9 => "night",
-                10 => "clear",
-                _ => "",
-            };
-
-            file_name = file_name + &format!("-{}", tag);
-        }
-        
-        file_name = format!("{}.{}", file_name, files[i].path().extension().unwrap().to_str().unwrap()); 
-
-        if file_name != files[i].file_name().to_str().unwrap() {
-            let to = get_wallpaper_dir()
-                .join(&file_name);
-            
-            fs::rename(files[i].path(), to).unwrap();
-            println!("renamed {}\n", file_name);
-        }
-
+    Wallpaper {
+        filename: filename.clone(),
+        path: file.path(),
+        tags: tag_map
+            .get(&filename)
+            .unwrap_or(&HashSet::new())
+            .clone(),
     }
 }
 
-pub fn get_suitable_wallpapers(valid_files: &Vec<fs::DirEntry>, weather_tags: Vec<&str>) -> Vec<PathBuf> {
-    let re: regex::RegexSet = regex::RegexSet::new(&weather_tags).unwrap();
 
-    let mut suitable_paths = vec![];
-    let mut any_paths = vec![];
+/* Save map of tags associated with each file */
+fn save_tag_map(wallpapers: &HashSet<Wallpaper>) {
+    let tag_map: HashMap<String, Vec<WeatherCond>> = HashMap::from_iter(wallpapers
+        .into_iter()
+        .cloned()
+        .map(|Wallpaper { filename, tags, .. }| 
+            (filename, tags.into_iter().collect::<Vec<WeatherCond>>())
+        )
+    );
 
-    let night_re: regex::Regex = regex::Regex::new(r"night").unwrap();
-    
-    let mut max_tags: usize = 0;
-    
-    // println!("", file_name);
-    for file in valid_files {
-        let file_name = file.file_name();
-        let file_name = file_name.to_str().unwrap();
-        
-        println!("{}", file_name);
-
-        let num_matches = re.matches(&file_name).iter().count();
-
-        if night_re.is_match(&file_name) == weather_tags.contains(&"night") {
-            if num_matches >= max_tags {
-                if num_matches > max_tags {
-                    max_tags = num_matches;
-                    suitable_paths.clear();
-                }
-    
-                suitable_paths.push(file.path());
-            } else if num_matches == 0 {
-                let file_name_num = file_name[0..file_name.len() - 4].parse::<i128>();
-                
-                match file_name_num {
-                    Ok(_) => suitable_paths.push(file.path()),
-                    Err(_error) => (),            
-                };
-            }
-        }
-    }
-    
-    suitable_paths.append(&mut any_paths);
-    
-    // println!("Suitable files: ");
-    // for path in suitable_paths.clone() 
-    // {
-    //     println!("\t- {}", path.file_name().unwrap().to_str().unwrap());
-    // }
-
-    return suitable_paths;
+    println!("{}", serde_json::to_string(&tag_map).unwrap());
 }
 
-pub fn get_rand_index <T> (suitable_wallpapers: &Vec<T>) -> usize {
-    let len: usize = suitable_wallpapers.len();
-    return fastrand::usize(0..len);
+/* Load map of tags associated with each file */
+fn load_tag_map() -> HashMap<String, HashSet<WeatherCond>> {
+    let contents = fs::read_to_string(picture_dir().unwrap().join(SAVED_TAGS_FILE))
+        .unwrap_or(String::from("{}"));
+
+    let parsed: HashMap<String, Vec<WeatherCond>> = serde_json::from_str(&contents)
+        .expect("Could not parse tags file");
+
+    parsed.into_iter()
+        .map(|(filename, value)| (filename, HashSet::from_iter(value)))
+        .collect()
 }
