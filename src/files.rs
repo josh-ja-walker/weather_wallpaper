@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use regex::Regex;
 use dirs::picture_dir;
 
-use crate::{Wallpaper, Weather, WeatherCond};
+use crate::{Wallpaper, WeatherCond};
 
 const VALID_EXTS: [&'static str; 3] = ["png", "jpg", "bmp"];
 const SAVED_TAGS_FILE: &str = "./tags.json";
@@ -70,6 +70,7 @@ fn load_wallpaper(file: fs::DirEntry, tag_map: &HashMap<String, HashSet<WeatherC
 }
 
 
+//TODO: save tags and allow editing of maps
 /* Save map of tags associated with each file */
 fn save_tag_map(wallpapers: &HashSet<Wallpaper>) {
     let tag_map: HashMap<String, Vec<WeatherCond>> = HashMap::from_iter(wallpapers
