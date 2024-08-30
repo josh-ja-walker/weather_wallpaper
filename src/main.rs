@@ -63,24 +63,26 @@ impl Wallpaper {
 
     //TODO: call when displaying
     /* Output preview of photo in terminal */
-    fn render_preview(&self) {
+    fn render_preview(&self, width: u32) {
         let conf = viuer::Config {
             absolute_offset: false,
             x: PREVIEW_OFFSET,
             y: 0,
-            width: Some(PREVIEW_WIDTH),
+            width: Some(width),
             height: None,
             ..Default::default()
         };
         
-        println!(" image: ");
         let _ = viuer::print_from_file(self.path.to_str().unwrap(), &conf);
     }
 
     /* Print info and image to console */
-    fn print(&self) {
+    fn print(&self, width: u32) {
         println!("{self}");
-        self.render_preview();
+        println!(" image: ");
+        
+        self.render_preview(width);
+        println!();
     }
     
 }
@@ -124,8 +126,7 @@ fn main() {
     println!("Current Weather: {}", curr_weather);
 
     println!("Suitable Wallpapers: ");
-    suitable_wallpapers.iter().for_each(|w| w.print());
-    
+    suitable_wallpapers.iter().for_each(|w| w.print(32));
 }
 
 /* Filter out wallpapers that do not have current weather as tag */

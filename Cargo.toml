@@ -19,6 +19,8 @@ tokio = { version = "1", features = ["full"] }
 regex = "1.6.0"
 fastrand = "1.7.0"
 
+console = "0.15.8"
+dialoguer = "0.11.0"
 colored = "2.1.0"
 viuer = "0.7.1"
 

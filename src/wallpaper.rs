@@ -1,13 +1,19 @@
-use std::fs;
-use std::io;
+use std::{fs, io};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
+use colored::{ColoredString, Colorize};
+use dialoguer::Input;
+use dialoguer::MultiSelect;
+use dialoguer::Select;
+
 use regex::Regex;
+
 use dirs::picture_dir;
+
 use strum::IntoEnumIterator;
 
-use crate::{Wallpaper, WeatherCond};
+use crate::{Wallpaper, WeatherCond, PREVIEW_WIDTH};
 
 const VALID_EXTS: [&'static str; 3] = ["png", "jpg", "bmp"];
 const SAVED_TAGS_FILE: &str = "./tags.json";
@@ -74,54 +80,96 @@ fn load_wallpaper(file: fs::DirEntry, tag_map: &HashMap<String, HashSet<WeatherC
 
 /* Edit the tags of all wallpapers */
 pub fn edit_all_tags() {
-    let wallpapers = get_all_wallpapers();
-
-    let updated_wallpapers: HashSet<Wallpaper> = wallpapers
+    let mut wallpapers = get_all_wallpapers()
         .into_iter()
-        .map(|w| edit_tags(w).unwrap())
-        .collect();
+        .collect::<Vec<Wallpaper>>();
 
-    save_tag_map(&updated_wallpapers);
+    edit_tags(0, &mut wallpapers);
+
+    save_tag_map(&wallpapers.into_iter().collect()).unwrap();
 }
 
 /* Edit the tags of a wallpaper */
-fn edit_tags(wallpaper: Wallpaper) -> Result<Wallpaper, Box<dyn std::error::Error>> {
-    wallpaper.print();
-
-    print!("\n");
-
-    println!("Choose tags:");
-    WeatherCond::iter()
-    .map(|cond| cond.synonyms())
-    .map(|syns| syns.join(", ").to_lowercase())
-    .enumerate()
-    .for_each(|(index, syns)| println!(" {index}: {syns}"));
-
-    // println!(" s: skip this wallpaper");
-    // println!(" g <index>: Go to nth wallpaper");
-    // println!(" q: quit editing tags");
-
-    println!("----------------");
-
-    let mut buffer = String::new();
-    let stdin = io::stdin(); 
-    stdin.read_line(&mut buffer)?;
-
-    /* TODO: Handle goto or skip or quit options */
+fn edit_tags(index: usize, wallpapers: &mut Vec<Wallpaper>) {
+    if index >= wallpapers.len() {
+        return;
+    }
     
-    /* Parse tag from numerical input */
-    let tag: WeatherCond = WeatherCond::iter()
-        .nth(buffer.trim().parse::<usize>()?)
-        .ok_or("Invalid choice of tag")?;
+    wallpapers[index].print(PREVIEW_WIDTH);
 
-    let mut new_wallpaper = wallpaper.clone();
-    new_wallpaper.tags.insert(tag);
+    let items: Vec<(ColoredString, bool)> = WeatherCond::iter()
+        .map(|cond| (
+            cond.synonyms().join(", ").to_lowercase().color(cond.color()), 
+            wallpapers[index].tags.contains(&cond)))
+        .collect();
 
-    Ok(new_wallpaper)
+    let input = MultiSelect::new()
+        .with_prompt("Select weather tags")
+        .items_checked(&items)
+        .report(false)
+        .interact_opt()
+        .unwrap();
+    
+    /* Control signals */
+    if let None = input {
+        return control(index, wallpapers);
+    }
+
+    let selected = input.unwrap();
+
+    /* Update tags */
+    wallpapers[index].tags = WeatherCond::iter()
+        .enumerate()
+        .filter_map(|(i, cond)| 
+            if selected.contains(&i) {
+                Some(cond)
+            } else {
+                None
+            })
+        .collect();
+
+    edit_tags(index + 1, wallpapers)
+}
+
+/* Control editing of tags (skip/goto/quit) */
+fn control(index: usize, wallpapers: &mut Vec<Wallpaper>) {
+    /* Cancelled tag setting */
+    let control = Select::new()
+        .with_prompt("Setting tags interrupted")
+        .items(&["Skip", "Go to ", "Quit"])
+        .default(0)
+        .report(false)
+        .interact()
+        .unwrap();
+
+    let new_index = match control {
+        /* Skip */
+        0 => index + 1,
+
+        /* Goto x */ 
+        1 => Input::new()
+            .with_prompt("Enter index of wallpaper to edit")
+            .validate_with(|input: &String| 
+                match input.parse::<usize>() {
+                    Ok(x) if x < wallpapers.len() => Ok(()),
+                    Ok(_) => Err("out of range"),
+                    Err(_) => Err("not a number"),
+                })
+            .interact()
+            .unwrap()
+            .parse::<usize>()
+            .unwrap(),
+            
+        /* Quit */
+        2 => wallpapers.len(),
+
+        _ => unreachable!(),
+    };
+
+    edit_tags(new_index, wallpapers)
 }
 
 
-//TODO: save tags and allow editing of maps
 /* Save map of tags associated with each file */
 fn save_tag_map(wallpapers: &HashSet<Wallpaper>) -> io::Result<()> {
     let tag_map: HashMap<String, Vec<WeatherCond>> = HashMap::from_iter(wallpapers
