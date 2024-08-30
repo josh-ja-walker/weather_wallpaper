@@ -1714,7 +1714,6 @@ dependencies = [
  "strum_macros 0.26.4",
  "tokio",
  "viuer",
- "wallpaper",
 ]
 
 [[package]]

@@ -7,7 +7,6 @@ authors = ["Joshua Walker"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-wallpaper = "3.2.0"
 more-wallpapers = { version = "0.1.1", features = ["wallpaper", "rand"] }
 
 dirs = "4.0.0"

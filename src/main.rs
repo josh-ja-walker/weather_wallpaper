@@ -1,5 +1,5 @@
 mod weather;
-mod files;
+mod wallpaper;
 
 use std::{
     collections::HashSet, 
@@ -15,9 +15,11 @@ use colored::Colorize;
 
 use serde::{Deserialize, Serialize};
 
-use files::get_all_wallpapers;
+use wallpaper::{edit_all_tags, get_all_wallpapers};
 use weather::get_current_weather;
 
+const PREVIEW_WIDTH: u32 = 64;
+const PREVIEW_OFFSET: u16 = 8;
 
 #[derive(Debug, Clone)]
 pub struct Wallpaper {
@@ -45,28 +47,42 @@ impl Display for Wallpaper {
         write!(f, "{} ({:?})\n tags: {}", 
             self.filename.bold(), 
             self.path,
-            self.tags.iter()
-                .map(|w| format!("{w:?}"))
-                .collect::<Vec<String>>()
-                .join(", ")
+            if self.tags.is_empty() {
+                String::from("none")
+            } else {
+                self.tags.iter()
+                    .map(|w| format!("{w:?}"))
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            }
         )
     }
 }
 
 impl Wallpaper {
+
     //TODO: call when displaying
+    /* Output preview of photo in terminal */
     fn render_preview(&self) {
         let conf = viuer::Config {
             absolute_offset: false,
-            x: 0,
+            x: PREVIEW_OFFSET,
             y: 0,
-            width: Some(32),
-            height: Some(18),
+            width: Some(PREVIEW_WIDTH),
+            height: None,
             ..Default::default()
         };
-
+        
+        println!(" image: ");
         let _ = viuer::print_from_file(self.path.to_str().unwrap(), &conf);
     }
+
+    /* Print info and image to console */
+    fn print(&self) {
+        println!("{self}");
+        self.render_preview();
+    }
+    
 }
 
 
@@ -79,7 +95,9 @@ pub struct Weather {
 impl Display for Weather {
     /* Print weather conditions */
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} ({})", self.condition.to_string().bold(), if self.is_day {"daytime"} else {"night-time"})
+        write!(f, "{} ({})", 
+            self.condition.to_string().bold(), 
+            if self.is_day {"daytime"} else {"night-time"})
     }
 }
 
@@ -98,11 +116,16 @@ enum WeatherCond {
 
 
 fn main() {
+    edit_all_tags();
+
     let curr_weather = get_current_weather();
     let suitable_wallpapers = get_suitable_wallpapers(&curr_weather);
     
     println!("Current Weather: {}", curr_weather);
-    println!("Suitable Wallpapers: {:?}", suitable_wallpapers);
+
+    println!("Suitable Wallpapers: ");
+    suitable_wallpapers.iter().for_each(|w| w.print());
+    
 }
 
 /* Filter out wallpapers that do not have current weather as tag */

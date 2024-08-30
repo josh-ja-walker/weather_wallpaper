@@ -79,7 +79,7 @@ impl From<WeatherData> for Weather {
 
 /* Synonyms for parsing weather conditions from WeatherAPI data */
 impl WeatherCond {
-    fn synonyms(&self) -> Vec<&str> {
+    pub fn synonyms(&self) -> Vec<String> {
         //TODO: complete synonyms, look at weather_conditions.json
         match self {
             WeatherCond::Clear => vec!["Clear"],
@@ -90,7 +90,9 @@ impl WeatherCond {
             WeatherCond::Fog => vec!["Mist", "Fog"],
             WeatherCond::Storm => vec!["Stormy", "Thunder"],
             WeatherCond::Snow => vec!["Snow", "Blizzard"],
-        }
+        }.into_iter()
+        .map(String::from)
+        .collect()
     }
 }
 
