@@ -136,7 +136,9 @@ fn control(index: usize, wallpapers: &mut Vec<Wallpaper>) {
     /* Cancelled tag setting */
     let control = Select::new()
         .with_prompt("Setting tags interrupted")
-        .items(&["Skip", "Go to ", "Quit"])
+        .item("Skip")
+        .item("Go to ")
+        .item("Quit")
         .default(0)
         .report(false)
         .interact()

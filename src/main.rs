@@ -8,6 +8,7 @@ use std::{
     hash::{Hash, Hasher}, 
 };
 
+use dialoguer::Select;
 use strum_macros::{Display, EnumIter};
 
 use viuer;    
@@ -61,7 +62,6 @@ impl Display for Wallpaper {
 
 impl Wallpaper {
 
-    //TODO: call when displaying
     /* Output preview of photo in terminal */
     fn render_preview(&self, width: u32) {
         let conf = viuer::Config {
@@ -80,7 +80,7 @@ impl Wallpaper {
     fn print(&self, width: u32) {
         println!("{self}");
         println!(" image: ");
-        
+
         self.render_preview(width);
         println!();
     }
@@ -103,7 +103,6 @@ impl Display for Weather {
     }
 }
 
-//TODO: add other conditions
 #[derive(Display, Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, EnumIter)]
 enum WeatherCond {
     Clear,
@@ -118,13 +117,32 @@ enum WeatherCond {
 
 
 fn main() {
-    edit_all_tags();
+    loop {
+        let choice = Select::new()
+            .with_prompt("Weather Wallpaper")
+            .item("Start")
+            .item("Edit wallpaper tags")
+            .item("Settings")
+            .default(0)
+            .report(false)
+            .interact()
+            .unwrap();
+    
+        match choice {
+            0 => set_wallpaper(),
+            1 => edit_all_tags(),
+            2 => todo!(),
+            _ => unreachable!()
+        }
+    }
+}
 
+fn set_wallpaper() {
     let curr_weather = get_current_weather();
     let suitable_wallpapers = get_suitable_wallpapers(&curr_weather);
     
     println!("Current Weather: {}", curr_weather);
-
+    
     println!("Suitable Wallpapers: ");
     suitable_wallpapers.iter().for_each(|w| w.print(32));
 }
