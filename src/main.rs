@@ -8,6 +8,8 @@ use std::{
     hash::{Hash, Hasher}, 
 };
 
+use strum_macros::{Display, EnumIter};
+
 use viuer;    
 use colored::Colorize;
 
@@ -52,6 +54,7 @@ impl Display for Wallpaper {
 }
 
 impl Wallpaper {
+    //TODO: call when displaying
     fn render_preview(&self) {
         let conf = viuer::Config {
             absolute_offset: false,
@@ -73,13 +76,24 @@ pub struct Weather {
     is_day: bool
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+impl Display for Weather {
+    /* Print weather conditions */
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} ({})", self.condition.to_string().bold(), if self.is_day {"daytime"} else {"night-time"})
+    }
+}
+
+//TODO: add other conditions
+#[derive(Display, Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, EnumIter)]
 enum WeatherCond {
-    PartCloud,
-    Cloud,
-    Rain,
+    Clear,
     Sun,
+    Cloud,
+    PartCloud,
     Fog,
+    Rain,
+    Storm,
+    Snow
 }
 
 
@@ -87,7 +101,8 @@ fn main() {
     let curr_weather = get_current_weather();
     let suitable_wallpapers = get_suitable_wallpapers(&curr_weather);
     
-    println!("{:?}", suitable_wallpapers);
+    println!("Current Weather: {}", curr_weather);
+    println!("Suitable Wallpapers: {:?}", suitable_wallpapers);
 }
 
 /* Filter out wallpapers that do not have current weather as tag */

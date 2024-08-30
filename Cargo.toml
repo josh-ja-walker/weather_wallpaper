@@ -22,3 +22,6 @@ fastrand = "1.7.0"
 
 colored = "2.1.0"
 viuer = "0.7.1"
+
+strum = "0.26"
+strum_macros = "0.26"
