@@ -16,7 +16,7 @@ use colored::Colorize;
 
 use serde::{Deserialize, Serialize};
 
-use wallpaper::{edit_all_tags, get_all_wallpapers};
+use wallpaper::{edit_all_wallpaper_tags, get_all_wallpapers};
 use weather::get_current_weather;
 
 const PREVIEW_WIDTH: u32 = 64;
@@ -45,9 +45,12 @@ impl Hash for Wallpaper {
 impl Display for Wallpaper {
     /* Print name, path and tags of Wallpaper */
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} ({:?})\n tags: {}", 
+        write!(f, "{} ({})\n tags: {}", 
+            
             self.filename.bold(), 
-            self.path,
+
+            self.path.to_str().unwrap().to_string().dimmed(),
+            
             if self.tags.is_empty() {
                 String::from("none")
             } else {
@@ -136,8 +139,8 @@ fn main() {
     
         match choice {
             0 => set_wallpaper(),
-            1 => edit_all_tags(),
-            2 => todo!(),
+            1 => edit_all_wallpaper_tags(),
+            2 => todo!(), /* TODO: allow changing of refresh times, etc. */
             _ => unreachable!()
         }
     }

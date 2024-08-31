@@ -79,28 +79,43 @@ fn load_wallpaper(file: fs::DirEntry, tag_map: &HashMap<String, HashSet<WeatherT
 
 
 /* Edit the tags of all wallpapers */
-pub fn edit_all_tags() {
+pub fn edit_all_wallpaper_tags() {
     let mut wallpapers = get_all_wallpapers()
         .into_iter()
         .collect::<Vec<Wallpaper>>();
 
-    edit_tags(0, &mut wallpapers);
+    edit_menu(0, &mut wallpapers);
 
     save_tag_map(&wallpapers.into_iter().collect()).unwrap();
 }
 
 /* Edit the tags of a wallpaper */
-fn edit_tags(index: usize, wallpapers: &mut Vec<Wallpaper>) {
+fn edit_menu(index: usize, wallpapers: &mut Vec<Wallpaper>) {
     if index >= wallpapers.len() {
         return;
     }
-    
-    wallpapers[index].print(PREVIEW_WIDTH);
 
-    let items: Vec<(String, bool)> = WeatherTag::iter()
+    print!("{}. ", index);
+
+    match edit_wallpaper_tags(&mut wallpapers[index]) {
+        Ok(_) => edit_menu(index + 1, wallpapers),
+        Err(_) => control_edit_menu(index, wallpapers),
+    }
+}
+
+/* Edit the tags of a wallpaper */
+fn edit_wallpaper_tags(wallpaper: &mut Wallpaper) -> io::Result<()> {
+    wallpaper.print(PREVIEW_WIDTH);
+
+    let cond_items: Vec<(WeatherTag, String, bool)> = WeatherTag::iter()
         .map(|cond| (
-            cond.synonyms().join(", ").to_lowercase(), 
-            wallpapers[index].tags.contains(&cond)))
+            cond.clone(), cond.to_string(), wallpaper.tags.contains(&cond)
+        ))
+        .collect();
+
+    let items: Vec<(String, bool)> = cond_items
+        .iter()
+        .map(|(_, s, b)| (s.clone(), b.clone()))
         .collect();
 
     let input = MultiSelect::new()
@@ -108,35 +123,23 @@ fn edit_tags(index: usize, wallpapers: &mut Vec<Wallpaper>) {
         .items_checked(&items)
         .report(false)
         .interact_opt()
-        .unwrap();
+        .unwrap()
+        .ok_or(io::Error::other("Control character [esc, q] pressed to exit menu"))?;
     
-    /* Control signals */
-    if let None = input {
-        return control(index, wallpapers);
-    }
-
-    let selected = input.unwrap();
-
     /* Update tags */
-    wallpapers[index].tags = WeatherTag::iter()
-        .enumerate()
-        .filter_map(|(i, cond)| 
-            if selected.contains(&i) {
-                Some(cond)
-            } else {
-                None
-            })
+    wallpaper.tags = input.into_iter()
+        .map(|i| cond_items[i].0.clone())
         .collect();
 
-    edit_tags(index + 1, wallpapers)
+    Ok(())
 }
 
 /* Control editing of tags (skip/goto/quit) */
-fn control(index: usize, wallpapers: &mut Vec<Wallpaper>) {
-    /* Cancelled tag setting */
+fn control_edit_menu(index: usize, wallpapers: &mut Vec<Wallpaper>) {
     let control = Select::new()
         .with_prompt("Setting tags interrupted")
-        .item("Skip")
+        .item("Next")
+        .item("Prev")
         .item("Go to ")
         .item("Quit")
         .default(0)
@@ -145,11 +148,14 @@ fn control(index: usize, wallpapers: &mut Vec<Wallpaper>) {
         .unwrap();
 
     let new_index = match control {
-        /* Skip */
+        /* Next */
         0 => index + 1,
 
+        /* Prev */
+        1 => index.checked_sub(1).unwrap_or(0),
+
         /* Goto x */ 
-        1 => Input::new()
+        2 => Input::new()
             .with_prompt("Enter index of wallpaper to edit")
             .validate_with(|input: &String| 
                 match input.parse::<usize>() {
@@ -163,12 +169,12 @@ fn control(index: usize, wallpapers: &mut Vec<Wallpaper>) {
             .unwrap(),
             
         /* Quit */
-        2 => wallpapers.len(),
+        3 => wallpapers.len(),
 
         _ => unreachable!(),
     };
 
-    edit_tags(new_index, wallpapers)
+    edit_menu(new_index, wallpapers)
 }
 
 

@@ -98,7 +98,7 @@ impl WeatherTag {
     }
 
     pub fn to_string(&self) -> String {
-        self.synonyms().join(", ")        
+        self.synonyms().join(", ").to_lowercase()        
     }
 
     /* Adapt and parse WeatherAPI condition to WeatherCond */
