@@ -98,19 +98,17 @@ impl WeatherTag {
     }
 
     pub fn to_string(&self) -> String {
-        self.synonyms().join(", ").to_lowercase()        
+        self.synonyms().join(", ").to_lowercase()
     }
 
     /* Adapt and parse WeatherAPI condition to WeatherCond */
     fn parse(data_cond: Condition) -> HashSet<WeatherTag> {
         WeatherTag::iter()
-            .filter(|weather_cond: &WeatherTag|
-                weather_cond
-                    .synonyms()
-                    .iter() 
-                    /* Check for contained synonyms */
-                    /* TODO: fix issue with cloudy = partly cloudy */
-                    .any(|syn| data_cond.text.to_lowercase().contains(&syn.to_lowercase())))
+            .filter(|weather_cond: &WeatherTag| weather_cond.synonyms().iter() 
+                /* Check for contained synonyms */  
+                .any(|syn| !(syn == "Cloudy" && data_cond.text.contains("Partly cloudy"))
+                    && data_cond.text.to_lowercase().contains(&syn.to_lowercase())
+                ))
             .collect()
     }
 }
