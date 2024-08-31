@@ -3,16 +3,17 @@ mod wallpaper;
 
 use std::{
     thread, 
-    time::Duration,
-    cmp::Ordering, 
+    time::Duration, 
     collections::HashSet, 
     fmt::{self, Display}, 
     hash::{Hash, Hasher}, 
     path::{Path, PathBuf}, 
 };
 
+use rand::prelude::*;
+use rand::distributions::WeightedIndex;
+
 use dialoguer::Select;
-use more_wallpapers::{set_random_wallpapers_from_vec, Mode};
 use strum_macros::{Display, EnumIter};
 
 use viuer;    
@@ -179,23 +180,32 @@ fn set_wallpaper() {
     println!("Suitable Wallpapers: ");
     suitable_wallpapers.iter().for_each(|w| w.print(SMALL_PREVIEW_WIDTH));
 
-    set_random_wallpapers_from_vec(suitable_wallpapers.into_iter().collect(), Mode::Center)
-        .unwrap();
+    let chosen = choose_wallpaper(curr_weather, suitable_wallpapers);
+    println!("Chosen: {}", chosen);
+
+    wallpaper_setting::set_from_path(chosen.path.as_os_str().to_str().unwrap()).unwrap();
 }
 
-/* Select most applicable wallpapers (most matching tags) */
+/* Choose random wallpaper */
+fn choose_wallpaper(weather: Weather, suitable: HashSet<Wallpaper>) -> Wallpaper {
+    let mut rng = thread_rng();
+
+    let items: Vec<(usize, Wallpaper)> = suitable
+        .into_iter()
+        .map(|w| (w.tags.intersection(&weather.tags).count(), w)) 
+        .collect();
+
+    let dist = WeightedIndex::new(items.iter().map(|item| item.0)).unwrap();
+
+    items[dist.sample(&mut rng)].1.clone()
+}
+
+/* Filter wallpapers with no matching tags */
 fn get_suitable_wallpapers(weather: &Weather) -> HashSet<Wallpaper> {
     get_all_wallpapers()
         .into_iter()
-        .map(|w| (w.tags.intersection(&weather.tags).count(), w)) 
-        .fold((0, Vec::new()), |mut acc, (ntags2, w)| {
-            match acc.0.cmp(&ntags2) {
-                Ordering::Greater => acc,
-                Ordering::Equal => {acc.1.push(w); acc},
-                Ordering::Less => (ntags2, vec![w]),
-            }
-        }).1
-        .into_iter()
+        // .filter(|w| weather.is_day && ) TODO
+        .filter(|w| w.tags.intersection(&weather.tags).next().is_some())
         .collect()
-    }
+}
     
