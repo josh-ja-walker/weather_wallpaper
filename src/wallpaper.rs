@@ -79,7 +79,7 @@ fn load_wallpaper(file: fs::DirEntry, tag_map: &HashMap<String, HashSet<WeatherT
 
 
 /* Edit the tags of all wallpapers */
-pub fn edit_all_wallpaper_tags() {
+pub fn edit_all_tags() {
     let mut wallpapers = get_all_wallpapers()
         .into_iter()
         .collect::<Vec<Wallpaper>>();
@@ -97,14 +97,14 @@ fn edit_menu(index: usize, wallpapers: &mut Vec<Wallpaper>) {
 
     print!("{}. ", index);
 
-    match edit_wallpaper_tags(&mut wallpapers[index]) {
+    match edit_tags(&mut wallpapers[index]) {
         Ok(_) => edit_menu(index + 1, wallpapers),
         Err(_) => control_edit_menu(index, wallpapers),
     }
 }
 
 /* Edit the tags of a wallpaper */
-fn edit_wallpaper_tags(wallpaper: &mut Wallpaper) -> io::Result<()> {
+fn edit_tags(wallpaper: &mut Wallpaper) -> io::Result<()> {
     wallpaper.print(PREVIEW_WIDTH);
 
     let cond_items: Vec<(WeatherTag, String, bool)> = WeatherTag::iter()

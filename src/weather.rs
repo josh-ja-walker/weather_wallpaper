@@ -103,7 +103,6 @@ impl WeatherTag {
 
     /* Adapt and parse WeatherAPI condition to WeatherCond */
     fn parse(data_cond: Condition) -> HashSet<WeatherTag> {
-        println!("{:?}", data_cond);
         WeatherTag::iter()
             .filter(|weather_cond: &WeatherTag|
                 weather_cond
