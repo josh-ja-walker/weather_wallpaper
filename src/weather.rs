@@ -1,9 +1,11 @@
+use std::collections::HashSet;
+
 use reqwest;
 use serde::{Deserialize, Serialize};
 
 use strum::IntoEnumIterator;
 
-use crate::{Weather, WeatherCond};
+use crate::{Weather, WeatherTag};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct WeatherData {
@@ -71,40 +73,45 @@ pub fn get_current_weather() -> Weather {
 impl From<WeatherData> for Weather {
     fn from(data: WeatherData) -> Weather {
         Weather {
-            condition: WeatherCond::from(data.current.condition),
+            tags: WeatherTag::parse(data.current.condition),
             is_day: data.current.is_day != 0
         }
     }
 }
 
 /* Synonyms for parsing weather conditions from WeatherAPI data */
-impl WeatherCond {
+impl WeatherTag {
     pub fn synonyms(&self) -> Vec<String> {
         //TODO: complete synonyms, look at weather_conditions.json
         match self {
-            WeatherCond::Clear => vec!["Clear"],
-            WeatherCond::Sun => vec!["Sun"],
-            WeatherCond::Rain => vec!["Rain, Drizzle"],
-            WeatherCond::Cloud => vec!["Cloudy", "Overcast"],
-            WeatherCond::PartCloud => vec!["Partly Cloudy"],
-            WeatherCond::Fog => vec!["Mist", "Fog"],
-            WeatherCond::Storm => vec!["Stormy", "Thunder"],
-            WeatherCond::Snow => vec!["Snow", "Blizzard"],
+            WeatherTag::Clear => vec!["Clear"],
+            WeatherTag::Sun => vec!["Sun"],
+            WeatherTag::Rain => vec!["Rain, Drizzle"],
+            WeatherTag::Cloud => vec!["Cloudy", "Overcast"],
+            WeatherTag::PartCloud => vec!["Partly Cloudy"],
+            WeatherTag::Fog => vec!["Mist", "Fog"],
+            WeatherTag::Storm => vec!["Stormy", "Thunder"],
+            WeatherTag::Snow => vec!["Snow", "Blizzard"],
         }.into_iter()
         .map(String::from)
         .collect()
     }
-}
 
-/* Adapt and parse WeatherAPI condition to WeatherCond */
-impl From<Condition> for WeatherCond {
-    fn from(data_cond: Condition) -> Self {
-        WeatherCond::iter()
-            .filter(|weather_cond: &WeatherCond|
+    pub fn to_string(&self) -> String {
+        self.synonyms().join(", ")        
+    }
+
+    /* Adapt and parse WeatherAPI condition to WeatherCond */
+    fn parse(data_cond: Condition) -> HashSet<WeatherTag> {
+        println!("{:?}", data_cond);
+        WeatherTag::iter()
+            .filter(|weather_cond: &WeatherTag|
                 weather_cond
                     .synonyms()
-                    .iter()
+                    .iter() 
+                    /* Check for contained synonyms */
+                    /* TODO: fix issue with cloudy = partly cloudy */
                     .any(|syn| data_cond.text.to_lowercase().contains(&syn.to_lowercase())))
-            .next().unwrap() //TODO: handle multiple conditions or ensure mutual exclusivity
+            .collect()
     }
 }

@@ -26,7 +26,7 @@ const PREVIEW_OFFSET: u16 = 8;
 pub struct Wallpaper {
     filename: String,
     path: PathBuf,
-    tags: HashSet<WeatherCond>
+    tags: HashSet<WeatherTag>
 }
 
 impl Eq for Wallpaper {}
@@ -88,9 +88,9 @@ impl Wallpaper {
 }
 
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Weather {
-    condition: WeatherCond,
+    tags: HashSet<WeatherTag>,
     is_day: bool
 }
 
@@ -98,13 +98,19 @@ impl Display for Weather {
     /* Print weather conditions */
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} ({})", 
-            self.condition.to_string().bold(), 
-            if self.is_day {"daytime"} else {"night-time"})
+            self.tags.iter()
+                .map(WeatherTag::to_string)
+                .collect::<Vec<String>>()
+                .join(", ")
+                .bold(), 
+
+            if self.is_day {"daytime"} else {"night-time"}
+        )
     }
 }
 
 #[derive(Display, Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, EnumIter)]
-enum WeatherCond {
+enum WeatherTag {
     Clear,
     Sun,
     Cloud,
@@ -151,6 +157,9 @@ fn set_wallpaper() {
 fn get_suitable_wallpapers(weather: &Weather) -> HashSet<Wallpaper> {
     get_all_wallpapers()
         .into_iter()
-        .filter(|w| w.tags.contains(&weather.condition))
+        /* Filter out wallpapers with NO matching tags */
+        /* TODO: rank wallpapers with more matching tags as more preferable */
+        /* TODO: allow any tag selected with none */
+        .filter(|w| w.tags.intersection(&weather.tags).next().is_some()) 
         .collect()
 }

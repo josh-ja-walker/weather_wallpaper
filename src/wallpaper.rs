@@ -2,7 +2,6 @@ use std::{fs, io};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
-use colored::{ColoredString, Colorize};
 use dialoguer::Input;
 use dialoguer::MultiSelect;
 use dialoguer::Select;
@@ -13,7 +12,7 @@ use dirs::picture_dir;
 
 use strum::IntoEnumIterator;
 
-use crate::{Wallpaper, WeatherCond, PREVIEW_WIDTH};
+use crate::{Wallpaper, WeatherTag, PREVIEW_WIDTH};
 
 const VALID_EXTS: [&'static str; 3] = ["png", "jpg", "bmp"];
 const SAVED_TAGS_FILE: &str = "./tags.json";
@@ -24,7 +23,8 @@ pub fn get_all_wallpapers() -> HashSet<Wallpaper> {
     let files: fs::ReadDir = fs::read_dir(get_wallpaper_dir())
         .expect("Could not read wallpaper directory");
 
-    let tag_map: HashMap<String, HashSet<WeatherCond>> = load_tag_map().expect("Could not load tag map");
+    let tag_map: HashMap<String, HashSet<WeatherTag>> = load_tag_map()
+        .expect("Could not load tag map");
 
     files.map(|file| file.unwrap())
         .filter(|file| is_valid(file)) /* Remove invalid files */
@@ -64,7 +64,7 @@ fn get_wallpaper_dir() -> PathBuf {
 
 
 /* Load wallpaper from directory */
-fn load_wallpaper(file: fs::DirEntry, tag_map: &HashMap<String, HashSet<WeatherCond>>) -> Wallpaper {
+fn load_wallpaper(file: fs::DirEntry, tag_map: &HashMap<String, HashSet<WeatherTag>>) -> Wallpaper {
     let filename = file.file_name().into_string().unwrap();
 
     Wallpaper {
@@ -97,9 +97,9 @@ fn edit_tags(index: usize, wallpapers: &mut Vec<Wallpaper>) {
     
     wallpapers[index].print(PREVIEW_WIDTH);
 
-    let items: Vec<(ColoredString, bool)> = WeatherCond::iter()
+    let items: Vec<(String, bool)> = WeatherTag::iter()
         .map(|cond| (
-            cond.synonyms().join(", ").to_lowercase().color(cond.color()), 
+            cond.synonyms().join(", ").to_lowercase(), 
             wallpapers[index].tags.contains(&cond)))
         .collect();
 
@@ -118,7 +118,7 @@ fn edit_tags(index: usize, wallpapers: &mut Vec<Wallpaper>) {
     let selected = input.unwrap();
 
     /* Update tags */
-    wallpapers[index].tags = WeatherCond::iter()
+    wallpapers[index].tags = WeatherTag::iter()
         .enumerate()
         .filter_map(|(i, cond)| 
             if selected.contains(&i) {
@@ -174,11 +174,11 @@ fn control(index: usize, wallpapers: &mut Vec<Wallpaper>) {
 
 /* Save map of tags associated with each file */
 fn save_tag_map(wallpapers: &HashSet<Wallpaper>) -> io::Result<()> {
-    let tag_map: HashMap<String, Vec<WeatherCond>> = HashMap::from_iter(wallpapers
+    let tag_map: HashMap<String, Vec<WeatherTag>> = HashMap::from_iter(wallpapers
         .into_iter()
         .cloned()
         .map(|Wallpaper { filename, tags, .. }| 
-            (filename, tags.into_iter().collect::<Vec<WeatherCond>>())
+            (filename, tags.into_iter().collect::<Vec<WeatherTag>>())
         )
     );
 
@@ -186,11 +186,11 @@ fn save_tag_map(wallpapers: &HashSet<Wallpaper>) -> io::Result<()> {
 }
 
 /* Load map of tags associated with each file */
-fn load_tag_map() -> io::Result<HashMap<String, HashSet<WeatherCond>>> {
+fn load_tag_map() -> io::Result<HashMap<String, HashSet<WeatherTag>>> {
     let contents = fs::read_to_string(saved_tags_path())
         .unwrap_or(String::from("{}"));
 
-    let parsed: HashMap<String, Vec<WeatherCond>> = serde_json::from_str(&contents)
+    let parsed: HashMap<String, Vec<WeatherTag>> = serde_json::from_str(&contents)
         .expect("Could not parse tags file");
 
     Ok(parsed.into_iter()
