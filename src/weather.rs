@@ -86,7 +86,7 @@ impl WeatherTag {
         match self {
             WeatherTag::Clear => vec!["Clear"],
             WeatherTag::Sun => vec!["Sun"],
-            WeatherTag::Rain => vec!["Rain, Drizzle"],
+            WeatherTag::Rain => vec!["Rain", "Drizzle"],
             WeatherTag::Cloud => vec!["Cloudy", "Overcast"],
             WeatherTag::PartCloud => vec!["Partly Cloudy"],
             WeatherTag::Fog => vec!["Mist", "Fog"],

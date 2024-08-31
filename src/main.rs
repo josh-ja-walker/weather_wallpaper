@@ -14,7 +14,7 @@ use rand::prelude::*;
 use rand::distributions::WeightedIndex;
 
 use dialoguer::Select;
-use strum_macros::{Display, EnumIter};
+use strum_macros::EnumIter;
 
 use viuer;    
 use colored::Colorize;
@@ -69,7 +69,7 @@ impl Display for Wallpaper {
                 String::from("none")
             } else {
                 self.tags.iter()
-                    .map(|w| format!("{w:?}"))
+                    .map(|tag| tag.synonyms()[0].to_lowercase().clone())
                     .collect::<Vec<String>>()
                     .join(", ")
             }
@@ -126,7 +126,7 @@ impl Display for Weather {
     }
 }
 
-#[derive(Display, Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, EnumIter)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, EnumIter)]
 enum WeatherTag {
     Clear,
     Sun,
@@ -177,11 +177,12 @@ fn set_wallpaper() {
     
     println!("Current Weather: {}", curr_weather);
 
-    println!("Suitable Wallpapers: ");
-    suitable_wallpapers.iter().for_each(|w| w.print(SMALL_PREVIEW_WIDTH));
+    // println!("Suitable Wallpapers: ");
+    // suitable_wallpapers.iter().for_each(|w| w.print(SMALL_PREVIEW_WIDTH));
 
     let chosen = choose_wallpaper(curr_weather, suitable_wallpapers);
-    println!("Chosen: {}", chosen);
+    print!("Chosen: ");
+    chosen.print(PREVIEW_WIDTH);
 
     wallpaper_setting::set_from_path(chosen.path.as_os_str().to_str().unwrap()).unwrap();
 }
