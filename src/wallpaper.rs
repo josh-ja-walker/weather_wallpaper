@@ -182,9 +182,16 @@ fn interrupted_menu(index: usize, wallpapers: &mut Vec<Wallpaper>) {
             .unwrap()
             .parse::<usize>()
             .unwrap(),
+            
+        /* Clear all tags */
+        3 => {
+            save_wallpaper_weather(&HashSet::new()).unwrap();
+            *wallpapers = get_all_wallpapers().into_iter().collect::<Vec<Wallpaper>>();
+            wallpapers.len()
+        },
 
         /* Quit */
-        3 => wallpapers.len(),
+        4 => wallpapers.len(),
 
         _ => unreachable!(),
     };
