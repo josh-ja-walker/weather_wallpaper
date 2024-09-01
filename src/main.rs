@@ -36,6 +36,7 @@ const INTERVAL_MILLIS: u64 = 5 * 60 * 1000;
 
 const SAVED_SETTINGS_FILE: &str = "settings.json";
 
+
 #[derive(Debug, Clone)]
 pub struct Wallpaper {
     filename: String,
@@ -66,7 +67,7 @@ impl Display for Wallpaper {
 
     /* Print name, path and tags of Wallpaper */
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} ({})\n weather depicted: {}", 
+        write!(f, "{} ({})\n Weather depicted: {}", 
             self.filename.bold(), 
             self.path.to_str().unwrap().to_string().dimmed(),
             self.weather
@@ -84,6 +85,7 @@ impl Wallpaper {
             y: 0,
             width: Some(width),
             height: None,
+            truecolor: true,
             ..Default::default()
         };
         
@@ -93,9 +95,10 @@ impl Wallpaper {
     /* Print info and image to console */
     fn print(&self, width: u32) {
         println!("{self}");
-        println!(" image: ");
 
+        println!(" Image: ");
         self.render_preview(width);
+        
         println!();
     }
     
@@ -155,14 +158,12 @@ enum WeatherTag {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Config {
     interval: u64, /* Refresh interval in millis */
-    hide_window: bool,
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self { 
             interval: INTERVAL_MILLIS, 
-            hide_window: false, 
         }
     }
 }
@@ -180,10 +181,7 @@ fn main() {
     loop {
         let choice = Select::new()
             .with_prompt("Weather Wallpaper")
-            .item("Start")
-            .item("Tags")
-            .item("Settings")
-            .item("Quit")
+            .items(&items_format(vec!["Start", "Tags", "Settings", "Quit"]))
             .default(0)
             .report(false)
             .interact()
@@ -198,6 +196,14 @@ fn main() {
         }
     }
 }
+
+/* Format select options */
+fn items_format<T>(options: Vec<T>) -> Vec<String> where T: Display {
+    options.iter()
+        .map(|option| format!("\u{2022} {option}"))
+        .collect()
+}
+
 
 /* Get wallpaper directory (nested in Picture directory) */
 fn wallpaper_dir_path() -> PathBuf {
@@ -217,25 +223,29 @@ fn wallpaper_dir_path() -> PathBuf {
 /* Start wallpaper setting */
 fn set_wallpaper(config: &Config) {
     loop {
+        Term::stdout().clear_screen().unwrap();
+
+        println!("{}", "Weather Wallpaper:".bold());
+
         update_wallpaper();
-    
-        let bar_style = ProgressStyle::with_template("{msg}\n[{elapsed_precise}] {wide_bar:.white/gray} ({eta})\t\t")
+
+        let bar_style = ProgressStyle::with_template("{msg}\n[{elapsed_precise}] {wide_bar} ({eta})\t\t")
             .unwrap();
         
         let pb = ProgressBar::new(config.interval)
             .with_style(bar_style)
             .with_message("Time remaining until refresh:");
         
-        for _ in 0..pb.length().unwrap() {
-            thread::sleep(Duration::from_millis(1));
-            pb.inc(1);
+        let step_size = 30;
+        for _ in 0..config.interval / step_size {
+            thread::sleep(Duration::from_millis(step_size));
+            pb.inc(step_size);
         }
         
         pb.finish_and_clear();
         println!("Now refreshing...");
 
         thread::sleep(Duration::from_secs(1));
-        Term::stdout().clear_screen().unwrap();
     }
 }
 
@@ -284,10 +294,11 @@ fn choose_wallpaper(weather: Weather, wallpapers: HashSet<Wallpaper>) -> Wallpap
 fn edit_settings(config: &mut Config) {
     let choice = Select::new()
         .with_prompt("Edit settings")
-        .item(format!("Set refresh interval [{} mins]", config.interval_mins()))
-        .item(format!("Toggle window hide behavior [{}]", "TODO"))
-        .item("Restore default settings")
-        .item("Back")
+        .items(&items_format(vec![
+            &format!("Set refresh interval [{} mins]", config.interval_mins()),
+            "Restore default settings",
+            "Back",
+        ]))
         .default(0)
         .report(false)
         .interact_opt()
@@ -297,14 +308,28 @@ fn edit_settings(config: &mut Config) {
 
     match choice.unwrap() {
         0 => set_interval(config),
-        1 => todo!(),
-        2 => todo!(),
-        3 => (),
+        1 => *config = Config::default(),
+        2 => return,
         _ => unreachable!()
     };
 
     save_settings(config).expect("Could not save settings");
 }
+
+/* Handle input for refresh interval */
+fn set_interval(config: &mut Config) {
+    let mins = Input::<f32>::new()
+        .with_prompt(format!("Set refresh interval [{} mins]", config.interval_mins())) 
+        .validate_with(|x: &f32| 
+            if *x > 0.0 { Ok(()) } else { Err("Cannot be non-positive") } )
+        .interact()
+        .unwrap();
+            
+    config.interval = (mins * 60.0 * 1000.0) as u64;
+    
+    Term::stdout().clear_last_lines(1).unwrap();
+}
+
 
 /* Save settings to .json file */
 fn save_settings(config: &Config) -> io::Result<()> {
@@ -321,16 +346,4 @@ fn load_settings() -> io::Result<Config> {
 /* Helper function to get path to file of saved settings */
 fn saved_settings_path() -> PathBuf {
     wallpaper_dir_path().join(SAVED_SETTINGS_FILE)
-}
-
-/* Handle input for refresh interval */
-fn set_interval(config: &mut Config) {
-    let mins = Input::<f32>::new()
-        .with_prompt(format!("Set refresh interval [{} mins]", config.interval_mins())) 
-        .validate_with(|x: &f32| 
-            if *x > 0.0 { Ok(()) } else { Err("Cannot be non-positive") } )
-        .interact()
-        .unwrap();
-
-    config.interval = (mins * 60.0 * 1000.0) as u64;
 }

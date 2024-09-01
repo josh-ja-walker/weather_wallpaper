@@ -2,6 +2,7 @@ use std::{fs, io};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
+use console::Term;
 use dialoguer::Input;
 use dialoguer::MultiSelect;
 use dialoguer::Select;
@@ -10,7 +11,7 @@ use regex::Regex;
 
 use strum::IntoEnumIterator;
 
-use crate::{wallpaper_dir_path, Wallpaper, Weather, WeatherTag, PREVIEW_WIDTH};
+use crate::{items_format, wallpaper_dir_path, Wallpaper, Weather, WeatherTag, PREVIEW_WIDTH};
 
 const VALID_EXTS: [&'static str; 3] = ["png", "jpg", "bmp"];
 const WALLPAPER_TAGS_FILE: &str = "wallpaper_tags.json";
@@ -113,8 +114,7 @@ fn edit_tags(wallpaper: &mut Wallpaper) -> io::Result<()> {
     let interrupt_error = io::Error::new(io::ErrorKind::Interrupted, "Control character [esc, q] pressed");
     let day_night = Select::new()
         .with_prompt("Select day or night")
-        .item("Day")
-        .item("Night")
+        .items(&items_format(vec!["Day", "Night"]))
         .default(!wallpaper.weather.is_day as usize)
         .report(false)
         .interact_opt()
@@ -135,12 +135,14 @@ fn edit_tags(wallpaper: &mut Wallpaper) -> io::Result<()> {
 /* Interrupted editing of tags (skip/goto/quit) */
 fn interrupted_menu(index: usize, wallpapers: &mut Vec<Wallpaper>) {
     let control = Select::new()
-        .with_prompt("Interrupted!")
-        .item("Next")
-        .item("Prev")
-        .item("Go to ")
-        .item("Reset all tags") 
-        .item("Quit")
+        .with_prompt("Interrupted")
+        .items(&items_format(vec![
+            "Next",
+            "Prev",
+            "Go to ",
+            "Reset all tags", 
+            "Back",
+        ]))
         .default(0)
         .report(false)
         .interact()
@@ -154,18 +156,8 @@ fn interrupted_menu(index: usize, wallpapers: &mut Vec<Wallpaper>) {
         1 => index.checked_sub(1).unwrap_or(0),
 
         /* Goto x */ 
-        2 => Input::<usize>::new()
-            .with_prompt("Enter index of wallpaper to edit")
-            .validate_with(|input: &usize| -> Result<(), &str> {
-                if *input < wallpapers.len() {
-                    Err("out of range")
-                } else {
-                    Ok(())
-                }
-            } )
-            .interact()
-            .unwrap(),
-            
+        2 => goto_menu(wallpapers),
+
         /* Clear all tags */
         3 => {
             save_wallpaper_weather(&HashSet::new()).unwrap();
@@ -180,6 +172,25 @@ fn interrupted_menu(index: usize, wallpapers: &mut Vec<Wallpaper>) {
     };
 
     edit_menu(new_index, wallpapers)
+}
+
+/* Handle input for goto */
+fn goto_menu(wallpapers: &mut Vec<Wallpaper>) -> usize {
+    let x = Input::<usize>::new()
+        .with_prompt("Enter index of wallpaper to edit")
+        .validate_with(|input: &usize| 
+            if *input < wallpapers.len() {
+                Ok(())
+            } else {
+                Err("out of range")
+            }
+        )
+        .interact()
+        .unwrap();
+
+    Term::stdout().clear_last_lines(1).unwrap();
+    
+    x
 }
 
 
