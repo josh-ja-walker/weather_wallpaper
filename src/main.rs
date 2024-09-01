@@ -13,7 +13,7 @@ use std::{
 use rand::prelude::*;
 use rand::distributions::WeightedIndex;
 
-use dialoguer::Select;
+use dialoguer::{Input, Select};
 use strum_macros::EnumIter;
 
 use viuer;
@@ -27,7 +27,7 @@ use weather::get_current_weather;
 const PREVIEW_WIDTH: u32 = 64;
 const PREVIEW_OFFSET: u16 = 8;
 
-const WAIT_SECS: u64 = 5 * 60;
+const INTERVAL_SECS: u64 = 5 * 60;
 
 #[derive(Debug, Clone)]
 pub struct Wallpaper {
@@ -144,13 +144,30 @@ enum WeatherTag {
     Snow
 }
 
+/* Settings config */
+struct Config {
+    interval: u64,
+    hide_window: bool,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self { 
+            interval: INTERVAL_SECS, 
+            hide_window: false, 
+        }
+    }
+}
+
 
 fn main() {
+    let mut config = Config::default();
+
     loop {
         let choice = Select::new()
             .with_prompt("Weather Wallpaper")
             .item("Start")
-            .item("Edit wallpaper tags")
+            .item("Tags")
             .item("Settings")
             .item("Quit")
             .default(0)
@@ -159,9 +176,9 @@ fn main() {
             .unwrap();
     
         match choice {
-            0 => initiate(),
+            0 => initiate(&config),
             1 => edit_all_tags(),
-            2 => todo!(), /* TODO: allow changing of refresh times, etc. */
+            2 => edit_settings(&mut config), /* TODO: allow changing of refresh times, etc. */
             3 => break, /* Quit */
             _ => unreachable!()
         }
@@ -169,11 +186,11 @@ fn main() {
 }
 
 /* Start wallpaper setting */
-fn initiate() {
+fn initiate(config: &Config) {
     loop {
         update_wallpaper();
-        println!("Will update in {}s", WAIT_SECS);
-        thread::sleep(Duration::from_secs(WAIT_SECS));
+        println!("Will update in {} mins", config.interval as f32 / 60.0);
+        thread::sleep(Duration::from_secs(config.interval));
     }
 }
 
@@ -215,4 +232,39 @@ fn choose_wallpaper(weather: Weather, wallpapers: HashSet<Wallpaper>) -> Wallpap
         let dist = WeightedIndex::new(tag_weighted.iter().map(|item| item.0)).unwrap();
         tag_weighted[dist.sample(&mut rng)].1
     }.clone()
+}
+
+
+
+/* Set refresh time, window shows, etc. */
+fn edit_settings(config: &mut Config) {
+    let choice = Select::new()
+        .with_prompt("Edit settings")
+        .item(format!("Set refresh interval [{} mins]", config.interval as f32 / 60.0))
+        .item(format!("Toggle window hide behavior [{}]", "TODO"))
+        .item("Back")
+        .default(0)
+        .report(false)
+        .interact_opt()
+        .unwrap();
+
+    if choice.is_none() { return; }
+
+    match choice.unwrap() {
+        0 => set_interval(config),
+        1 => todo!(),
+        2 => (),
+        _ => unreachable!()
+    }
+}
+
+fn set_interval(config: &mut Config) {
+    let mins = Input::<f32>::new()
+        .with_prompt(format!("Set refresh interval [{} mins]", config.interval as f32 / 60.0)) 
+        .validate_with(|x: &f32| 
+            if *x > 0.0 { Ok(()) } else { Err("Cannot be non-positive") } )
+        .interact()
+        .unwrap();
+
+    config.interval = (mins * 60.0) as u64;
 }

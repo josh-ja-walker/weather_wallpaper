@@ -170,17 +170,16 @@ fn interrupted_menu(index: usize, wallpapers: &mut Vec<Wallpaper>) {
         1 => index.checked_sub(1).unwrap_or(0),
 
         /* Goto x */ 
-        2 => Input::new()
+        2 => Input::<usize>::new()
             .with_prompt("Enter index of wallpaper to edit")
-            .validate_with(|input: &String| 
-                match input.parse::<usize>() {
-                    Ok(x) if x < wallpapers.len() => Ok(()),
-                    Ok(_) => Err("out of range"),
-                    Err(_) => Err("not a number"),
-                })
+            .validate_with(|input: &usize| -> Result<(), &str> {
+                if *input < wallpapers.len() {
+                    Err("out of range")
+                } else {
+                    Ok(())
+                }
+            } )
             .interact()
-            .unwrap()
-            .parse::<usize>()
             .unwrap(),
             
         /* Clear all tags */
