@@ -8,11 +8,9 @@ use dialoguer::Select;
 
 use regex::Regex;
 
-use dirs::picture_dir;
-
 use strum::IntoEnumIterator;
 
-use crate::{Wallpaper, Weather, WeatherTag, PREVIEW_WIDTH};
+use crate::{wallpaper_dir_path, Wallpaper, Weather, WeatherTag, PREVIEW_WIDTH};
 
 const VALID_EXTS: [&'static str; 3] = ["png", "jpg", "bmp"];
 const WALLPAPER_TAGS_FILE: &str = "wallpaper_tags.json";
@@ -46,20 +44,6 @@ fn check_extension(file_path: PathBuf) -> bool {
         .map_or("", |ext| ext.to_str().unwrap());
         
     valid_exts.is_match(&file_ext)
-}
-
-/* Get wallpaper directory (nested in Picture directory) */
-fn wallpaper_dir_path() -> PathBuf {
-    let wallpaper_dir: PathBuf = PathBuf::from(picture_dir().expect("No picture directory found"))
-        .join("weather_wallpapers");
-
-    /* Create wallpaper directory if it doesn't exist */
-    if !&wallpaper_dir.exists() {
-        fs::create_dir(wallpaper_dir.clone())
-            .expect("Could not create wallpaper directory");
-    }
-    
-    return wallpaper_dir;
 }
 
 
@@ -155,7 +139,7 @@ fn interrupted_menu(index: usize, wallpapers: &mut Vec<Wallpaper>) {
         .item("Next")
         .item("Prev")
         .item("Go to ")
-        .item("Reset all tags") //TODO
+        .item("Reset all tags") 
         .item("Quit")
         .default(0)
         .report(false)
