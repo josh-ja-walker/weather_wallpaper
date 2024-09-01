@@ -12,18 +12,18 @@ use dirs::picture_dir;
 
 use strum::IntoEnumIterator;
 
-use crate::{Wallpaper, WeatherTag, PREVIEW_WIDTH};
+use crate::{Wallpaper, Weather, WeatherTag, PREVIEW_WIDTH};
 
 const VALID_EXTS: [&'static str; 3] = ["png", "jpg", "bmp"];
-const SAVED_TAGS_FILE: &str = "./tags.json";
+const WALLPAPER_TAGS_FILE: &str = "wallpaper_tags.json";
 
 
 /* Retrieve all saved wallpapers */
 pub fn get_all_wallpapers() -> HashSet<Wallpaper> {
-    let files: fs::ReadDir = fs::read_dir(get_wallpaper_dir())
+    let files: fs::ReadDir = fs::read_dir(wallpaper_dir_path())
         .expect("Could not read wallpaper directory");
 
-    let tag_map: HashMap<String, HashSet<WeatherTag>> = load_tag_map()
+    let tag_map: HashMap<String, Weather> = load_wallpaper_weather()
         .expect("Could not load tag map");
 
     files.map(|file| file.unwrap())
@@ -49,7 +49,7 @@ fn check_extension(file_path: PathBuf) -> bool {
 }
 
 /* Get wallpaper directory (nested in Picture directory) */
-fn get_wallpaper_dir() -> PathBuf {
+fn wallpaper_dir_path() -> PathBuf {
     let wallpaper_dir: PathBuf = PathBuf::from(picture_dir().expect("No picture directory found"))
         .join("weather_wallpapers");
 
@@ -64,15 +64,15 @@ fn get_wallpaper_dir() -> PathBuf {
 
 
 /* Load wallpaper from directory */
-fn load_wallpaper(file: fs::DirEntry, tag_map: &HashMap<String, HashSet<WeatherTag>>) -> Wallpaper {
+fn load_wallpaper(file: fs::DirEntry, weather_map: &HashMap<String, Weather>) -> Wallpaper {
     let filename = file.file_name().into_string().unwrap();
 
     Wallpaper {
         filename: filename.clone(),
         path: file.path(),
-        tags: tag_map
+        weather: weather_map
             .get(&filename)
-            .unwrap_or(&HashSet::new())
+            .unwrap_or(&Weather::default())
             .clone(),
     }
 }
@@ -86,7 +86,7 @@ pub fn edit_all_tags() {
 
     edit_menu(0, &mut wallpapers);
 
-    save_tag_map(&wallpapers.into_iter().collect()).unwrap();
+    save_wallpaper_weather(&wallpapers.into_iter().collect()).unwrap();
 }
 
 /* Edit the tags of a wallpaper */
@@ -99,7 +99,8 @@ fn edit_menu(index: usize, wallpapers: &mut Vec<Wallpaper>) {
 
     match edit_tags(&mut wallpapers[index]) {
         Ok(_) => edit_menu(index + 1, wallpapers),
-        Err(_) => control_edit_menu(index, wallpapers),
+        Err(e) if e.kind() == io::ErrorKind::Interrupted => interrupted_menu(index, wallpapers),
+        error => error.unwrap(), 
     }
 }
 
@@ -107,40 +108,54 @@ fn edit_menu(index: usize, wallpapers: &mut Vec<Wallpaper>) {
 fn edit_tags(wallpaper: &mut Wallpaper) -> io::Result<()> {
     wallpaper.print(PREVIEW_WIDTH);
 
-    let cond_items: Vec<(WeatherTag, String, bool)> = WeatherTag::iter()
-        .map(|cond| (
-            cond.clone(), cond.to_string(), wallpaper.tags.contains(&cond)
-        ))
+    let tag_options: Vec<(WeatherTag, String, bool)> = WeatherTag::iter()
+        .map(|cond| (cond.clone(), cond.to_string(), wallpaper.weather.tags.contains(&cond)))
         .collect();
 
-    let items: Vec<(String, bool)> = cond_items
+    let options: Vec<(String, bool)> = tag_options
         .iter()
         .map(|(_, s, b)| (s.clone(), b.clone()))
         .collect();
 
+    let interrupt_error = io::Error::new(io::ErrorKind::Interrupted, "Control character [esc, q] pressed");
     let input = MultiSelect::new()
         .with_prompt("Select weather tags")
-        .items_checked(&items)
+        .items_checked(&options)
         .report(false)
         .interact_opt()
         .unwrap()
-        .ok_or(io::Error::other("Control character [esc, q] pressed to exit menu"))?;
+        .ok_or(interrupt_error)?;
     
+    let interrupt_error = io::Error::new(io::ErrorKind::Interrupted, "Control character [esc, q] pressed");
+    let day_night = Select::new()
+        .with_prompt("Select day or night")
+        .item("Day")
+        .item("Night")
+        .default(!wallpaper.weather.is_day as usize)
+        .report(false)
+        .interact_opt()
+        .unwrap()
+        .ok_or(interrupt_error)?;
+
     /* Update tags */
-    wallpaper.tags = input.into_iter()
-        .map(|i| cond_items[i].0.clone())
+    wallpaper.weather.tags = input.into_iter()
+        .map(|i| tag_options[i].0.clone())
         .collect();
+
+    /* Update day/night */
+    wallpaper.weather.is_day = day_night == 0;
 
     Ok(())
 }
 
-/* Control editing of tags (skip/goto/quit) */
-fn control_edit_menu(index: usize, wallpapers: &mut Vec<Wallpaper>) {
+/* Interrupted editing of tags (skip/goto/quit) */
+fn interrupted_menu(index: usize, wallpapers: &mut Vec<Wallpaper>) {
     let control = Select::new()
-        .with_prompt("Setting tags interrupted")
+        .with_prompt("Interrupted!")
         .item("Next")
         .item("Prev")
         .item("Go to ")
+        .item("Reset all tags") //TODO
         .item("Quit")
         .default(0)
         .report(false)
@@ -167,7 +182,7 @@ fn control_edit_menu(index: usize, wallpapers: &mut Vec<Wallpaper>) {
             .unwrap()
             .parse::<usize>()
             .unwrap(),
-            
+
         /* Quit */
         3 => wallpapers.len(),
 
@@ -179,34 +194,30 @@ fn control_edit_menu(index: usize, wallpapers: &mut Vec<Wallpaper>) {
 
 
 /* Save map of tags associated with each file */
-fn save_tag_map(wallpapers: &HashSet<Wallpaper>) -> io::Result<()> {
-    let tag_map: HashMap<String, Vec<WeatherTag>> = HashMap::from_iter(wallpapers
+fn save_wallpaper_weather(wallpapers: &HashSet<Wallpaper>) -> io::Result<()> {
+    let weather_map: HashMap<String, Weather> = HashMap::from_iter(wallpapers
         .into_iter()
         .cloned()
-        .map(|Wallpaper { filename, tags, .. }| 
-            (filename, tags.into_iter().collect::<Vec<WeatherTag>>())
+        .map(|Wallpaper { filename, weather, .. }| 
+            (filename, weather)
         )
     );
 
-    fs::write(saved_tags_path(), serde_json::to_string_pretty(&tag_map)?)
+    fs::write(saved_weather_path(), serde_json::to_string_pretty(&weather_map)?)
 }
 
 /* Load map of tags associated with each file */
-fn load_tag_map() -> io::Result<HashMap<String, HashSet<WeatherTag>>> {
-    let contents = fs::read_to_string(saved_tags_path())
+fn load_wallpaper_weather() -> io::Result<HashMap<String, Weather>> {
+    let contents = fs::read_to_string(saved_weather_path())
         .unwrap_or(String::from("{}"));
 
-    let parsed: HashMap<String, Vec<WeatherTag>> = serde_json::from_str(&contents)
-        .expect("Could not parse tags file");
+    let parsed: HashMap<String, Weather> = serde_json::from_str(&contents)
+        .expect("Could not parse saved weather file");
 
-    Ok(parsed.into_iter()
-        .map(|(filename, value)| (filename, HashSet::from_iter(value)))
-        .collect())
+    Ok(parsed)
 }
 
 /* Helper function to get path to file of saved tags */
-fn saved_tags_path() -> PathBuf {
-    picture_dir()
-        .unwrap()
-        .join(SAVED_TAGS_FILE)
+fn saved_weather_path() -> PathBuf {
+    wallpaper_dir_path().join(WALLPAPER_TAGS_FILE)
 }

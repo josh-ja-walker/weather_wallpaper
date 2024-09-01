@@ -16,7 +16,7 @@ use rand::distributions::WeightedIndex;
 use dialoguer::Select;
 use strum_macros::EnumIter;
 
-use viuer;    
+use viuer;
 use colored::Colorize;
 
 use serde::{Deserialize, Serialize};
@@ -25,7 +25,6 @@ use wallpaper::{edit_all_tags, get_all_wallpapers};
 use weather::get_current_weather;
 
 const PREVIEW_WIDTH: u32 = 64;
-const SMALL_PREVIEW_WIDTH: u32 = 32;
 const PREVIEW_OFFSET: u16 = 8;
 
 const WAIT_SECS: u64 = 5 * 60;
@@ -34,7 +33,7 @@ const WAIT_SECS: u64 = 5 * 60;
 pub struct Wallpaper {
     filename: String,
     path: PathBuf,
-    tags: HashSet<WeatherTag>
+    weather: Weather
 }
 
 impl Eq for Wallpaper {}
@@ -57,22 +56,13 @@ impl AsRef<Path> for Wallpaper {
 }
 
 impl Display for Wallpaper {
+
     /* Print name, path and tags of Wallpaper */
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} ({})\n tags: {}", 
-            
+        write!(f, "{} ({})\n weather depicted: {}", 
             self.filename.bold(), 
-
             self.path.to_str().unwrap().to_string().dimmed(),
-            
-            if self.tags.is_empty() {
-                String::from("none")
-            } else {
-                self.tags.iter()
-                    .map(|tag| tag.synonyms()[0].to_lowercase().clone())
-                    .collect::<Vec<String>>()
-                    .join(", ")
-            }
+            self.weather
         )
     }
 }
@@ -111,19 +101,35 @@ pub struct Weather {
     is_day: bool
 }
 
+/* Default weather */
+impl Default for Weather {
+    fn default() -> Self {
+        Self { 
+            tags: HashSet::new(), 
+            is_day: true 
+        }
+    }
+}
+
+/* Print weather conditions */
 impl Display for Weather {
-    /* Print weather conditions */
+
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} ({})", 
-            self.tags.iter()
-                .map(WeatherTag::to_string)
-                .collect::<Vec<String>>()
-                .join(", ")
-                .bold(), 
+            if self.tags.is_empty() {
+                String::from("none").dimmed()
+            } else {
+                self.tags.iter()
+                    .map(WeatherTag::to_string)
+                    .collect::<Vec<String>>()
+                    .join(", ")
+                    .bold()
+            },
 
             if self.is_day {"daytime"} else {"night-time"}
         )
     }
+
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, EnumIter)]
@@ -153,7 +159,7 @@ fn main() {
             .unwrap();
     
         match choice {
-            0 => start(),
+            0 => initiate(),
             1 => edit_all_tags(),
             2 => todo!(), /* TODO: allow changing of refresh times, etc. */
             3 => break, /* Quit */
@@ -163,50 +169,50 @@ fn main() {
 }
 
 /* Start wallpaper setting */
-fn start() {
+fn initiate() {
     loop {
-        set_wallpaper();
+        update_wallpaper();
+        println!("Will update in {}s", WAIT_SECS);
         thread::sleep(Duration::from_secs(WAIT_SECS));
     }
 }
 
 /* Set the wallpaper */
-fn set_wallpaper() {
+fn update_wallpaper() {
     let curr_weather = get_current_weather();
-    let suitable_wallpapers = get_suitable_wallpapers(&curr_weather);
-    
     println!("Current Weather: {}", curr_weather);
 
-    // println!("Suitable Wallpapers: ");
-    // suitable_wallpapers.iter().for_each(|w| w.print(SMALL_PREVIEW_WIDTH));
+    let chosen = choose_wallpaper(curr_weather, get_all_wallpapers());
 
-    let chosen = choose_wallpaper(curr_weather, suitable_wallpapers);
     print!("Chosen: ");
     chosen.print(PREVIEW_WIDTH);
 
-    wallpaper_setting::set_from_path(chosen.path.as_os_str().to_str().unwrap()).unwrap();
+    wallpaper_setting::set_from_path(chosen.path.to_str().unwrap()).unwrap();
 }
 
 /* Choose random wallpaper */
-fn choose_wallpaper(weather: Weather, suitable: HashSet<Wallpaper>) -> Wallpaper {
+fn choose_wallpaper(weather: Weather, wallpapers: HashSet<Wallpaper>) -> Wallpaper {
     let mut rng = thread_rng();
-
-    let items: Vec<(usize, Wallpaper)> = suitable
-        .into_iter()
-        .map(|w| (w.tags.intersection(&weather.tags).count(), w)) 
+    
+    let mut day_filtered: Vec<&Wallpaper> = wallpapers
+        .iter()
+        .filter(|w| w.weather.is_day == weather.is_day)
         .collect();
 
-    let dist = WeightedIndex::new(items.iter().map(|item| item.0)).unwrap();
-
-    items[dist.sample(&mut rng)].1.clone()
-}
-
-/* Filter wallpapers with no matching tags */
-fn get_suitable_wallpapers(weather: &Weather) -> HashSet<Wallpaper> {
-    get_all_wallpapers()
-        .into_iter()
-        // .filter(|w| weather.is_day && ) TODO
-        .filter(|w| w.tags.intersection(&weather.tags).next().is_some())
-        .collect()
-}
+    if day_filtered.is_empty() {
+        day_filtered = wallpapers.iter().collect();
+    }
     
+    let tag_weighted: Vec<(usize, &&Wallpaper)> = day_filtered
+        .iter()
+        .map(|w| (w.weather.tags.intersection(&weather.tags).count(), w)) 
+        .filter(|(num_match, _)| *num_match > 0)
+        .collect();
+
+    if tag_weighted.is_empty() {
+        day_filtered.into_iter().choose(&mut rng).unwrap()
+    } else {
+        let dist = WeightedIndex::new(tag_weighted.iter().map(|item| item.0)).unwrap();
+        tag_weighted[dist.sample(&mut rng)].1
+    }.clone()
+}
