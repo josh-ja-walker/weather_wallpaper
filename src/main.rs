@@ -2,10 +2,8 @@ mod weather;
 mod wallpaper;
 
 use std::{
-    io,
-    fs, 
-    thread, 
-    time::Duration,
+    fs, io, 
+    thread, time::Duration,
     collections::HashSet, 
     fmt::{self, Display}, 
     hash::{Hash, Hasher}, 
@@ -177,6 +175,13 @@ impl Config {
 fn main() {
     let mut config = load_settings().unwrap_or_default();
 
+    if get_all_wallpapers().is_empty() {
+        println!("Weather Wallpaper:");
+        println!("No wallpapers found. Add wallpapers to {}", wallpaper_dir_path().to_str().unwrap());
+        Term::stdout().read_line().unwrap();
+        return;
+    }
+
     loop {
         let choice = Select::new()
             .with_prompt("Weather Wallpaper")
@@ -256,10 +261,12 @@ fn set_wallpaper(config: &Config) {
 /* Set the wallpaper */
 fn update_wallpaper() {
     let curr_weather = get_current_weather();
+
     println!("Current Weather: {}", curr_weather);
 
     let chosen = choose_wallpaper(curr_weather, get_all_wallpapers());
 
+    
     print!("Chosen: ");
     chosen.print(PREVIEW_WIDTH);
 
@@ -286,9 +293,17 @@ fn choose_wallpaper(weather: Weather, wallpapers: HashSet<Wallpaper>) -> Wallpap
         .collect();
 
     if tag_weighted.is_empty() {
-        day_filtered.into_iter().choose(&mut rng).unwrap()
+        day_filtered
+            .into_iter()
+            .choose(&mut rng)
+            .unwrap()
     } else {
-        let dist = WeightedIndex::new(tag_weighted.iter().map(|item| item.0)).unwrap();
+        let dist = WeightedIndex::new(
+            tag_weighted
+                .iter()
+                .map(|item| item.0)
+            ).unwrap();
+
         tag_weighted[dist.sample(&mut rng)].1
     }.clone()
 }
