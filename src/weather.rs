@@ -1,4 +1,4 @@
-use std::{collections::HashSet, io};
+use std::{collections::{HashMap, HashSet}, fs, io, path::{Path, PathBuf}};
 
 use reqwest;
 use serde::{Deserialize, Serialize};
@@ -98,8 +98,8 @@ impl WeatherTag {
         self.synonyms().join(", ").to_lowercase()
     }
 
-    fn matching_codes(&self, conds: &Vec<Condition>) -> Vec<u32> {
-        let matching_indexes = match self {
+    fn matching_indexes(&self) -> Vec<usize> {
+        match self {
             WeatherTag::Sun => vec![0],
             WeatherTag::PartCloud => vec![1],
             WeatherTag::Cloud => vec![2, 3, 5, 6, 9, 14, 18, 44],
@@ -113,9 +113,18 @@ impl WeatherTag {
                 6, 7, 8, 10, 11, 13, 16, 17, 24, 25, 26, 27, 28, 29, 
                 30, 31, 32, 33, 34, 38, 39, 40, 41, 42, 43, 46, 47
             ],
-        };
+        }
+    }
 
-        matching_indexes.into_iter()
+    fn matches_to_map(&self, conds: &Vec<Condition>) -> HashMap<(usize, Condition), Vec<WeatherTag>> {
+        HashMap::from_iter(
+            self.matching_indexes().into_iter()
+                .map(|i| ((i, conds[i].clone()), vec![self.clone()]))
+        )
+    }
+
+    fn matching_codes(&self, conds: &Vec<Condition>) -> Vec<u32> {
+        self.matching_indexes().into_iter()
             .map(|i| conds[i].code)
             .collect()
     }
@@ -123,6 +132,8 @@ impl WeatherTag {
     /* Adapt and parse WeatherAPI condition to WeatherCond */
     fn parse(cond: Condition) -> HashSet<WeatherTag> {
         let all_conds = load_all_conditions().unwrap();
+        
+        save_matches_to_file();
         
         WeatherTag::iter()
             .filter(|tag| tag.matching_codes(&all_conds).contains(&cond.code))
@@ -135,4 +146,41 @@ fn load_all_conditions() -> io::Result<Vec<Condition>> {
     let contents = include_str!("../weather_conditions.json");
     let config: Vec<Condition> = serde_json::from_str(&contents)?;
     Ok(config)
+}
+
+fn save_matches_to_file() {
+    let all_conds = load_all_conditions().unwrap();
+
+    let map = WeatherTag::iter()
+        .map(|tag| tag.matches_to_map(&all_conds))
+        .reduce(|mut map1, map2| {
+            for (k, tags2) in map2.into_iter() {
+                match map1.get_mut(&k) {
+                    Some(tags1) => {
+                        tags1.extend(tags2.into_iter());
+                        tags1.dedup();
+                    }
+                    None => {map1.insert(k, tags2); },
+                }
+            };
+
+            map1
+        })
+        .unwrap();
+
+    let mut indexed_strings = map.into_iter()
+        .map(|((i, cond), tags)| (i, format!("\"{}\": [\n\t\t{}\n\t]", cond.text, 
+                tags.into_iter()
+                    .map(|t| format!("\"{:?}\"", t))
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            ))
+        )
+        .collect::<Vec<(usize, String)>>();
+
+    indexed_strings.sort_by(|(i, _), (j, _)| i.cmp(j));
+    
+    let string = indexed_strings.into_iter().map(|item| item.1).collect::<Vec<String>>().join(",\n\t");
+
+    fs::write(PathBuf::from("weather_conditions_temp.json"), format!("{{\n\t{}\n}}", string)).unwrap();
 }
