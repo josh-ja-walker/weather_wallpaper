@@ -1,8 +1,7 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, fs, io};
 
 use reqwest;
 use serde::{Deserialize, Serialize};
-
 use strum::IntoEnumIterator;
 
 use crate::{Weather, WeatherTag};
@@ -18,34 +17,34 @@ struct Location {
     name: String,
     region: String,
     country: String,
-    lat: f64,
-    lon: f64,
+    lat: f32,
+    lon: f32,
     tz_id: String,
-    localtime_epoch: u128,
+    localtime_epoch: usize,
     localtime: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Current {
-    condition: Condition,
+    last_updated: String,
+    temp_c: f32,
     is_day: u8,
 
-    last_updated: String,
-
-    temp_c: f32,
-    wind_kph: f64,
-    precip_mm: f64,
-    humidity: i16,
-    cloud: i16,
-    vis_km: f64,
-    uv: f64,
+    condition: Condition,
+    
+    wind_kph: f32,
+    precip_mm: f32,
+    humidity: u16,
+    cloud: u16,
+    vis_km: f32,
+    uv: f32,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 struct Condition {
     text: String,
     icon: String,
-    code: i128,
+    code: u32,
 }
 
 
@@ -53,8 +52,8 @@ struct Condition {
 #[tokio::main]
 async fn fetch_weather_data() -> Result<WeatherData, reqwest::Error> {
     reqwest::Client::new()
-        // .get("http://api.weatherapi.com/v1/current.json?key=d89f01f4ac164824b2c194551221707&q=auto:ip")
-        .get("http://api.weatherapi.com/v1/current.json?key=d89f01f4ac164824b2c194551221707&q=london")
+        .get("http://api.weatherapi.com/v1/current.json?key=d89f01f4ac164824b2c194551221707&q=auto:ip")
+        // .get("http://api.weatherapi.com/v1/current.json?key=d89f01f4ac164824b2c194551221707&q=london")
         .send()
         .await?
         .json()
@@ -82,10 +81,8 @@ impl From<WeatherData> for Weather {
 /* Synonyms for parsing weather conditions from WeatherAPI data */
 impl WeatherTag {
     pub fn synonyms(&self) -> Vec<String> {
-        //TODO: complete synonyms, look at weather_conditions.json
         match self {
-            WeatherTag::Clear => vec!["Clear"],
-            WeatherTag::Sun => vec!["Sun"],
+            WeatherTag::Sun => vec!["Sun", "Clear"],
             WeatherTag::Rain => vec!["Rain", "Drizzle"],
             WeatherTag::Cloud => vec!["Cloudy", "Overcast"],
             WeatherTag::PartCloud => vec!["Partly Cloudy"],
@@ -101,14 +98,41 @@ impl WeatherTag {
         self.synonyms().join(", ").to_lowercase()
     }
 
-    /* Adapt and parse WeatherAPI condition to WeatherCond */
-    fn parse(data_cond: Condition) -> HashSet<WeatherTag> {
-        WeatherTag::iter()
-            .filter(|weather_cond: &WeatherTag| weather_cond.synonyms().iter() 
-                /* Check for contained synonyms */  
-                .any(|syn| !(syn == "Cloudy" && data_cond.text.contains("Partly cloudy"))
-                    && data_cond.text.to_lowercase().contains(&syn.to_lowercase())
-                ))
+    fn matching_codes(&self, conds: &Vec<Condition>) -> Vec<u32> {
+        let matching_indexes = match self {
+            WeatherTag::Sun => vec![0],
+            WeatherTag::PartCloud => vec![1],
+            WeatherTag::Cloud => vec![2, 3, 5, 6, 9, 14, 18, 44],
+            WeatherTag::Rain => vec![
+                5, 7, 8, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 
+                24, 25, 26, 27, 35, 36, 37, 38, 39, 44, 45
+            ],
+            WeatherTag::Storm => vec![9, 44, 45, 46, 47],
+            WeatherTag::Fog => vec![4, 12, 13],
+            WeatherTag::Snow => vec![
+                6, 7, 8, 10, 11, 13, 16, 17, 24, 25, 26, 27, 28, 29, 
+                30, 31, 32, 33, 34, 38, 39, 40, 41, 42, 43, 46, 47
+            ],
+        };
+
+        matching_indexes.into_iter()
+            .map(|i| conds[i].code)
             .collect()
     }
+
+    /* Adapt and parse WeatherAPI condition to WeatherCond */
+    fn parse(cond: Condition) -> HashSet<WeatherTag> {
+        let all_conds = load_all_conditions().unwrap();
+        
+        WeatherTag::iter()
+            .filter(|tag| tag.matching_codes(&all_conds).contains(&cond.code))
+            .collect()
+    }
+}
+
+/* Load all conditions from json file */
+fn load_all_conditions() -> io::Result<Vec<Condition>> {
+    let contents = fs::read_to_string("weather_conditions.json")?;
+    let config: Vec<Condition> = serde_json::from_str(&contents)?;
+    Ok(config)
 }

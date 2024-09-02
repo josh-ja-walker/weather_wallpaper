@@ -144,14 +144,13 @@ impl Display for Weather {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, EnumIter)]
 enum WeatherTag {
-    Clear,
     Sun,
-    Cloud,
     PartCloud,
-    Fog,
+    Cloud,
     Rain,
     Storm,
-    Snow
+    Fog,
+    Snow,
 }
 
 /* Settings config */
@@ -181,7 +180,12 @@ fn main() {
     loop {
         let choice = Select::new()
             .with_prompt("Weather Wallpaper")
-            .items(&items_format(vec!["Start", "Tags", "Settings", "Quit"]))
+            .items(&items_format(vec![
+                "Start", 
+                "Tags", 
+                "Settings", 
+                "Quit"
+            ]))
             .default(0)
             .report(false)
             .interact()
@@ -190,7 +194,7 @@ fn main() {
         match choice {
             0 => set_wallpaper(&config),
             1 => edit_all_tags(),
-            2 => edit_settings(&mut config), /* TODO: allow changing of refresh times, etc. */
+            2 => edit_settings(&mut config),
             3 => break, /* Quit */
             _ => unreachable!()
         }
@@ -321,7 +325,12 @@ fn set_interval(config: &mut Config) {
     let mins = Input::<f32>::new()
         .with_prompt(format!("Set refresh interval [{} mins]", config.interval_mins())) 
         .validate_with(|x: &f32| 
-            if *x > 0.0 { Ok(()) } else { Err("Cannot be non-positive") } )
+            if *x > 0.0 { 
+                Ok(()) 
+            } else { 
+                Err("Cannot be non-positive") 
+            }
+        )
         .interact()
         .unwrap();
             
