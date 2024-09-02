@@ -1,67 +1,68 @@
 use std::{collections::{HashMap, HashSet}, fmt::{self, Display}};
 
-use reqwest;
+use colored::Colorize;
 use serde::{Deserialize, Serialize};
+use strum_macros::EnumIter;
 
-use crate::{Weather, WeatherTag};
+use crate::weather_api::{self, WeatherData};
 
-#[derive(Debug, Serialize, Deserialize)]
-struct WeatherData {
-    location: Location,
-    current: Current,
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Weather {
+    tags: HashSet<WeatherTag>, 
+    is_day: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct Location {
-    name: String,
-    region: String,
-    country: String,
-    lat: f32,
-    lon: f32,
-    tz_id: String,
-    localtime_epoch: usize,
-    localtime: String,
+impl Weather {
+    pub fn is_day(&self) -> bool {
+        self.is_day
+    }
+
+    pub fn set_is_day(&mut self, is_day: bool) {
+        self.is_day = is_day
+    }
+
+    pub fn tags(&self) -> &HashSet<WeatherTag> {
+        &self.tags
+    }
+
+    pub fn set_tags(&mut self, tags: HashSet<WeatherTag>) {
+        self.tags = tags;
+    }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct Current {
-    last_updated: String,
-    temp_c: f32,
-    is_day: u8,
-
-    condition: Condition,
-    
-    wind_kph: f32,
-    precip_mm: f32,
-    humidity: u16,
-    cloud: u16,
-    vis_km: f32,
-    uv: f32,
+/* Default weather */
+impl Default for Weather {
+    fn default() -> Self {
+        Self { 
+            tags: HashSet::new(), 
+            is_day: true
+        }
+    }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
-struct Condition {
-    text: String,
-    icon: String,
-    code: u32,
-}
+/* Print weather conditions */
+impl Display for Weather {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} ({})", 
+            if self.tags.is_empty() {
+                String::from("none").dimmed()
+            } else {
+                self.tags.iter()
+                    .map(WeatherTag::to_string)
+                    .collect::<Vec<String>>()
+                    .join(", ")
+                    .bold()
+            },
 
-
-/* Fetch weather data from the API */
-#[tokio::main]
-async fn fetch_weather_data() -> Result<WeatherData, reqwest::Error> {
-    reqwest::Client::new()
-        .get("http://api.weatherapi.com/v1/current.json?key=d89f01f4ac164824b2c194551221707&q=auto:ip")
-        // .get("http://api.weatherapi.com/v1/current.json?key=d89f01f4ac164824b2c194551221707&q=london")
-        .send()
-        .await?
-        .json()
-        .await
+            if self.is_day {"daytime"} else {"night-time"},
+        )
+    }
 }
 
 /* Get current Weather status */
 pub fn get_current_weather() -> Weather {
-    let weather_data: WeatherData = fetch_weather_data()
+    let weather_data: WeatherData = weather_api::fetch_weather_data()
         .expect("Could not fetch weather data from WeatherAPI.com");
 
     Weather::from(weather_data)
@@ -71,11 +72,23 @@ pub fn get_current_weather() -> Weather {
 impl From<WeatherData> for Weather {
     fn from(data: WeatherData) -> Weather {
         Weather {
-            tags: WeatherTag::parse(data.current.condition.text)
-                .expect("Could not parse condition"),
-            is_day: data.current.is_day != 0
+            tags: WeatherTag::parse(data.text())
+                .expect("Could not parse current weather"),
+            is_day: data.is_day()
         }
     }
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, EnumIter)]
+pub enum WeatherTag { 
+    Sun,
+    PartCloud,
+    Cloud,
+    Rain,
+    Storm,
+    Fog,
+    Snow,
 }
 
 impl Display for WeatherTag {
