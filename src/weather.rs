@@ -1,4 +1,4 @@
-use std::{collections::HashSet, fs, io};
+use std::{collections::HashSet, io};
 
 use reqwest;
 use serde::{Deserialize, Serialize};
@@ -132,7 +132,7 @@ impl WeatherTag {
 
 /* Load all conditions from json file */
 fn load_all_conditions() -> io::Result<Vec<Condition>> {
-    let contents = fs::read_to_string("weather_conditions.json")?;
+    let contents = include_str!("../weather_conditions.json");
     let config: Vec<Condition> = serde_json::from_str(&contents)?;
     Ok(config)
 }
