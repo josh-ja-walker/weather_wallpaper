@@ -102,5 +102,5 @@ pub fn load_settings() -> io::Result<Config> {
 
 /* Helper function to get path to file of saved settings */
 fn saved_settings_path() -> io::Result<PathBuf> {
-    files::wallpapers_path().and_then(|path| Ok(path.join(SAVED_SETTINGS_FILE)))
+    files::data_path().and_then(|path| Ok(path.join(SAVED_SETTINGS_FILE)))
 }

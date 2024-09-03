@@ -58,8 +58,21 @@ pub fn wallpapers_path() -> io::Result<PathBuf> {
 
     /* Create wallpaper directory if it doesn't exist */
     if !&wallpaper_dir.exists() {
-        fs::create_dir(wallpaper_dir.clone())?;
+        fs::create_dir(&wallpaper_dir)?;
     }
 
     Ok(wallpaper_dir)
 }
+
+/* Get data directory (nested in Wallpapers directory) */
+pub fn data_path() -> io::Result<PathBuf> {
+    let settings_dir: PathBuf = wallpapers_path()?.join("data");
+
+    /* Create wallpaper directory if it doesn't exist */
+    if !&settings_dir.exists() {
+        fs::create_dir(&settings_dir)?;
+    }
+
+    Ok(settings_dir)
+}
+

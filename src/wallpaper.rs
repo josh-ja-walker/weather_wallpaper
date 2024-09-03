@@ -119,5 +119,5 @@ pub fn load_wallpapers() -> io::Result<HashSet<Wallpaper>> {
 
 /* Helper function to get path to file of saved tags */
 fn wallpaper_tags_path() -> io::Result<PathBuf> {
-    files::wallpapers_path().and_then(|path| Ok(path.join(WALLPAPER_TAGS_FILE)))
+    files::data_path().and_then(|path| Ok(path.join(WALLPAPER_TAGS_FILE)))
 }
