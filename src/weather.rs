@@ -127,7 +127,7 @@ impl WeatherTag {
 
 /* Load all conditions from json file */
 fn load_conditions_map() -> std::io::Result<HashMap<String, Vec<WeatherTag>>> {
-    let contents = include_str!("../weather_conditions.json");
+    let contents = include_str!("weather_conditions.json");
     let config: HashMap<String, Vec<WeatherTag>> = serde_json::from_str(&contents)?;
     Ok(config)
 }
