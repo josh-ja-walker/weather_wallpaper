@@ -94,7 +94,7 @@ impl Wallpaper {
             .map_err(|_| Error::ImagePrintFail)
     }
 
-    pub fn set(self) -> Result<(), Error> {
+    pub fn set(&self) -> Result<(), Error> {
         let path_str = self.path.to_str().unwrap();
 
         wallpaper_setting::set_from_path(path_str)

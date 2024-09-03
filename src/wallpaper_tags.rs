@@ -13,7 +13,11 @@ pub fn edit_wallpaper_tags() {
         .into_iter()
         .collect::<Vec<Wallpaper>>();
 
+    let current_wallpaper = wallpaper_setting::get().unwrap();
+
     edit_menu(0, &mut wallpapers);
+
+    wallpaper_setting::set_from_path(&current_wallpaper).unwrap();
 
     wallpaper::save_wallpapers(&wallpapers.into_iter().collect()).unwrap();
 }
@@ -23,6 +27,8 @@ fn edit_menu(index: usize, wallpapers: &mut Vec<Wallpaper>) {
     if index >= wallpapers.len() {
         return;
     }
+
+    wallpapers[index].set().unwrap();
 
     print!("{}. ", index);
 
