@@ -9,7 +9,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 use dialoguer::Select;
 use colored::Colorize;
 
-use rand::{prelude::*, distributions::WeightedIndex};
+use rand::{distributions::{WeightedError, WeightedIndex}, prelude::*};
 
 use strum_macros::Display;
 
@@ -82,6 +82,8 @@ fn format_items<T>(options: Vec<T>) -> Vec<String> where T: Display {
 
 /* Start wallpaper setting */
 fn start(config: &Config) {
+    let wallpapers: HashSet<Wallpaper> = files::load_all_wallpapers();
+    
     loop {
         Term::stdout().clear_screen().unwrap();
         println!("{}", "Weather Wallpaper:".bold());
@@ -90,7 +92,7 @@ fn start(config: &Config) {
         println!("Current Weather: {}", curr_weather);
     
         print!("Chosen: ");
-        let chosen: Wallpaper = choose_wallpaper(curr_weather, files::load_all_wallpapers());
+        let chosen: &Wallpaper = choose_wallpaper(curr_weather, &wallpapers);
         chosen.print();
         chosen.set().unwrap();
 
@@ -120,36 +122,43 @@ fn render_progress_bar(config: &Config) {
 }
 
 /* Choose random wallpaper */
-fn choose_wallpaper(weather: Weather, wallpapers: HashSet<Wallpaper>) -> Wallpaper {
-    let mut rng = thread_rng();
-    
-    let mut day_filtered: Vec<&Wallpaper> = wallpapers
-        .iter()
+fn choose_wallpaper(weather: Weather, wallpapers: &HashSet<Wallpaper>) -> &Wallpaper {
+    /* Filter wallpapers by matching day/night */
+    let day_filtered: HashSet<&Wallpaper> = wallpapers.iter()
         .filter(|w| w.weather.is_day() == weather.is_day())
         .collect();
 
-    if day_filtered.is_empty() {
-        day_filtered = wallpapers.iter().collect();
+    /* Choose random wallpaper */
+    match weighted_choice(&weather, &day_filtered) {
+        Ok(wallpaper) => wallpaper,
+        
+        /* No day-appropriate wallpapers - try again with all wallpapers */
+        Err(WeightedError::NoItem) => 
+            weighted_choice(&weather, &wallpapers.iter().collect::<HashSet<&Wallpaper>>()).unwrap()
+        ,
+
+        error => error.unwrap(), /* Too many weights provided or negative weight found */
     }
-    
-    let tag_weighted: Vec<(usize, &&Wallpaper)> = day_filtered
-        .iter()
+}
+
+/* Weight wallpapers by number of matching tags, then choose a random wallpaper */
+fn weighted_choice<'a>(weather: &Weather, wallpapers: &HashSet<&'a Wallpaper>) -> Result<&'a Wallpaper, WeightedError> {
+    let mut rng = rand::thread_rng();
+
+    /* Weight wallpapers by matching tags */
+    let tag_weighted: Vec<(usize, &&Wallpaper)> = wallpapers.iter()
         .map(|w| (w.weather.tags().intersection(weather.tags()).count(), w)) 
-        .filter(|(num_match, _)| *num_match > 0)
         .collect();
 
-    if tag_weighted.is_empty() {
-        day_filtered
-            .into_iter()
-            .choose(&mut rng)
-            .unwrap()
-    } else {
-        let dist = WeightedIndex::new(
-            tag_weighted
-                .iter()
-                .map(|item| item.0)
-            ).unwrap();
-
-        tag_weighted[dist.sample(&mut rng)].1
-    }.clone()
+    /* Choose random wallpaper */
+    WeightedIndex::new(tag_weighted.iter().map(|item| item.0)) 
+        .and_then(|dist| {
+            /* Get wallpaper from vec */
+            Ok(tag_weighted[dist.sample(&mut rng)].1)
+        }) 
+        .or({
+            /* Or choose equally-weighted random wallpaper */
+            wallpapers.into_iter().choose(&mut rng).ok_or(WeightedError::NoItem)
+        }) 
+        .copied() 
 }
