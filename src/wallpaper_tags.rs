@@ -115,8 +115,8 @@ impl Wallpaper {
         /* Set whether day or night is depicted */
         let day_night = Select::new()
             .with_prompt("Select day or night")
-            .items(&format_items(vec!["Day", "Night"]))
-            .default(!self.weather.is_day() as usize)
+            .items(&format_items(vec!["Day", "Night", "Both"]))
+            .default(self.weather.is_day().map_or(2, |b| !b as usize))
             .report(false)
             .interact_opt()
             .unwrap()
@@ -131,7 +131,7 @@ impl Wallpaper {
         );
     
         /* Update day/night */
-        self.weather.set_is_day(day_night == 0);
+        self.weather.set_is_day([Some(true), Some(false), None][day_night]);
     
         Ok(())
     }

@@ -10,15 +10,15 @@ use crate::weather_api::{self, WeatherData};
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Weather {
     tags: HashSet<WeatherTag>, 
-    is_day: bool,
+    is_day: Option<bool>,
 }
 
 impl Weather {
-    pub fn is_day(&self) -> bool {
+    pub fn is_day(&self) -> Option<bool> {
         self.is_day
     }
 
-    pub fn set_is_day(&mut self, is_day: bool) {
+    pub fn set_is_day(&mut self, is_day: Option<bool>) {
         self.is_day = is_day
     }
 
@@ -36,7 +36,7 @@ impl Default for Weather {
     fn default() -> Self {
         Self { 
             tags: HashSet::new(), 
-            is_day: true
+            is_day: Some(true)
         }
     }
 }
@@ -55,7 +55,11 @@ impl Display for Weather {
                     .bold()
             },
 
-            if self.is_day {"daytime"} else {"night-time"},
+            match self.is_day {
+                Some(true) => "day",
+                Some(false) => "night",
+                None => "day/night",
+            },
         )
     }
 }
@@ -74,7 +78,7 @@ impl From<WeatherData> for Weather {
         Weather {
             tags: WeatherTag::parse(data.text())
                 .expect("Could not parse current weather"),
-            is_day: data.is_day()
+            is_day: Option::from(data.is_day())
         }
     }
 }
