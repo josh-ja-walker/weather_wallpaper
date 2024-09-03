@@ -12,18 +12,23 @@ const VALID_EXTS: [&'static str; 3] = ["png", "jpg", "bmp"];
 
 /* Retrieve all wallpapers */
 pub fn load_all_wallpapers() -> HashSet<Wallpaper> {
-    let files: fs::ReadDir = fs::read_dir(wallpapers_path().unwrap())
-        .expect("Could not read wallpaper directory");
-    
-    let unsaved_wallpapers = files
+    let files = fs::read_dir(wallpapers_path().unwrap())
+        .expect("Could not read wallpaper directory")
         .filter(|file| is_valid(file)) /* Remove invalid files */
         .map(|file| Wallpaper::new(file.unwrap())); /* Map to a wallpaper */
 
-    wallpaper::load_wallpapers()
+    let saved = wallpaper::load_wallpapers()
         .unwrap_or(HashSet::new())
         .into_iter()
-        .chain(unsaved_wallpapers)
-        .collect()
+        .filter(|wallpaper| wallpaper.is_valid());
+
+    let wallpapers: HashSet<Wallpaper> = saved
+        .chain(files)
+        .collect();
+
+    wallpaper::save_wallpapers(&wallpapers).unwrap();
+
+    wallpapers
 }
 
 /* Check the file is valid */

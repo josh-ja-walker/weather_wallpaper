@@ -60,6 +60,10 @@ impl Wallpaper {
         }
     }
 
+    pub fn is_valid(&self) -> bool {
+        self.path.exists()
+    }
+
     /* Print info and image to console */
     pub fn print(&self) {
         println!("{self}");
