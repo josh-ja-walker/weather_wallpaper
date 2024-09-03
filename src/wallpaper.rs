@@ -1,4 +1,4 @@
-use std::{collections::HashSet, fmt::{self, Display}, fs, hash::{Hash, Hasher}, io, path::{Path, PathBuf}};
+use std::{cmp, collections::HashSet, fmt::{self, Display}, fs, hash::{Hash, Hasher}, io, path::{Path, PathBuf}};
 
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
@@ -27,6 +27,18 @@ impl PartialEq for Wallpaper {
 impl Hash for Wallpaper {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.path.hash(state)
+    }
+}
+
+impl PartialOrd for Wallpaper {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        self.filename.partial_cmp(&other.filename)
+    }
+}
+
+impl Ord for Wallpaper {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
+        self.filename.cmp(&other.filename)
     }
 }
 

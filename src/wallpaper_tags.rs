@@ -13,6 +13,8 @@ pub fn edit_wallpaper_tags() {
         .into_iter()
         .collect::<Vec<Wallpaper>>();
 
+    wallpapers.sort();
+    
     let current_wallpaper = wallpaper_setting::get().unwrap();
 
     edit_menu(0, &mut wallpapers);
@@ -30,7 +32,7 @@ fn edit_menu(index: usize, wallpapers: &mut Vec<Wallpaper>) {
 
     wallpapers[index].set().unwrap();
 
-    print!("{}. ", index);
+    print!("[{}/{}] ", index + 1, wallpapers.len() + 1);
 
     match wallpapers[index].edit_tags() {
         Ok(_) => edit_menu(index + 1, wallpapers),
