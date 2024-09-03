@@ -1,12 +1,3 @@
-mod weather_api;
-mod weather;
-
-mod files;
-mod wallpaper;
-mod wallpaper_tags;
-
-mod settings;
-
 use std::{
     thread, time::Duration,
     collections::HashSet, 
@@ -15,25 +6,41 @@ use std::{
 
 use console::Term;
 use indicatif::{ProgressBar, ProgressStyle};
-use rand::prelude::*;
-use rand::distributions::WeightedIndex;
-
 use dialoguer::Select;
-
 use colored::Colorize;
 
-use files::load_all_wallpapers;
-use wallpaper_tags::edit_wallpaper_tags;
+use rand::{prelude::*, distributions::WeightedIndex};
+
+use strum_macros::Display;
+
+mod weather;
+mod weather_api;
+
+mod files;
+mod wallpaper;
+mod wallpaper_tags;
+
+mod settings;
+
 use settings::Config;
 use wallpaper::Wallpaper;
 use weather::Weather;
 
+
+#[derive(Display, Debug)]
+pub enum Error {
+    InvalidWallpaper,
+    ImagePrintFail,
+    Interrupted,
+    InvalidInput,
+}
+
 fn main() {
     let mut config = settings::load_settings().unwrap_or_default();
 
-    if load_all_wallpapers().is_empty() {
+    if files::load_all_wallpapers().is_empty() {
         println!("Weather Wallpaper:");
-        println!("No wallpapers found. Add wallpapers to {}", files::wallpapers_path().to_str().unwrap());
+        println!("No wallpapers found. Add wallpapers to {}", files::wallpapers_path().unwrap().to_str().unwrap());
         Term::stdout().read_line().unwrap();
         return;
     }
@@ -51,11 +58,11 @@ fn main() {
             .report(false)
             .interact()
             .unwrap();
-    
+
         match choice {
             0 => start(&config),
-            1 => edit_wallpaper_tags(),
-            2 => settings::edit_settings(&mut config),
+            1 => wallpaper_tags::edit_wallpaper_tags(),
+            2 => settings::edit_settings(&mut config).unwrap(),
             3 => break, /* Quit */
             _ => unreachable!()
         }
@@ -79,7 +86,7 @@ fn start(config: &Config) {
         println!("Current Weather: {}", curr_weather);
     
         print!("Chosen: ");
-        let chosen: Wallpaper = choose_wallpaper(curr_weather, load_all_wallpapers());
+        let chosen: Wallpaper = choose_wallpaper(curr_weather, files::load_all_wallpapers());
         chosen.print();
         chosen.set().unwrap();
 

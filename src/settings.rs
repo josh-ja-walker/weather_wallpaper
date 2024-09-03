@@ -10,6 +10,7 @@ const INTERVAL_MILLIS: u64 = 5 * 60 * 1000;
 
 const SAVED_SETTINGS_FILE: &str = "settings.json";
 
+
 /* Settings config */
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
@@ -36,7 +37,7 @@ impl Config {
 
 
 /* Set refresh time, window shows, etc. */
-pub fn edit_settings(config: &mut Config) {
+pub fn edit_settings(config: &mut Config) -> io::Result<()> {
     let choice = Select::new()
         .with_prompt("Edit settings")
         .items(&format_items(vec![
@@ -49,16 +50,14 @@ pub fn edit_settings(config: &mut Config) {
         .interact_opt()
         .unwrap();
 
-    if choice.is_none() { return; }
-
-    match choice.unwrap() {
-        0 => set_interval(config),
-        1 => *config = Config::default(),
-        2 => return,
+    match choice {
+        Some(0) => set_interval(config),
+        Some(1) => *config = Config::default(),
+        None | Some(2) => return Ok(()),
         _ => unreachable!()
     };
 
-    save_settings(config).expect("Could not save settings");
+    save_settings(config)
 }
 
 /* Handle input for refresh interval */
@@ -91,17 +90,17 @@ fn set_interval(config: &mut Config) {
 
 /* Save settings to .json file */
 fn save_settings(config: &Config) -> io::Result<()> {
-    fs::write(saved_settings_path(), serde_json::to_string_pretty(config)?)
+    fs::write(saved_settings_path()?, serde_json::to_string_pretty(config)?)
 }
 
 /* Load settings from .json file */
 pub fn load_settings() -> io::Result<Config> {
-    let contents = fs::read_to_string(saved_settings_path())?;
+    let contents = fs::read_to_string(saved_settings_path()?)?;
     let config = serde_json::from_str(&contents)?;
     Ok(config)
 }
 
 /* Helper function to get path to file of saved settings */
-fn saved_settings_path() -> PathBuf {
-    files::wallpapers_path().join(SAVED_SETTINGS_FILE)
+fn saved_settings_path() -> io::Result<PathBuf> {
+    files::wallpapers_path().and_then(|path| Ok(path.join(SAVED_SETTINGS_FILE)))
 }

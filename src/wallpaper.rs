@@ -3,7 +3,7 @@ use std::{collections::HashSet, fmt::{self, Display}, fs, hash::{Hash, Hasher}, 
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
 
-use crate::{files, weather::Weather};
+use crate::{Error, files, weather::Weather};
 
 const PREVIEW_WIDTH: u32 = 64;
 const PREVIEW_OFFSET: u16 = 8;
@@ -65,13 +65,13 @@ impl Wallpaper {
         println!("{self}");
 
         println!(" Image: ");
-        self.render_preview();
+        self.render_preview().unwrap();
         
         println!();
     }
 
     /* Output preview of photo in terminal */
-    fn render_preview(&self) {
+    fn render_preview(&self) -> Result<(u32, u32), Error> {
         let conf = viuer::Config {
             absolute_offset: false,
             
@@ -86,14 +86,15 @@ impl Wallpaper {
             ..Default::default()
         };
         
-        let _ = viuer::print_from_file(self.path.to_str().unwrap(), &conf);
+        viuer::print_from_file(self.path.to_str().unwrap(), &conf)
+            .map_err(|_| Error::ImagePrintFail)
     }
 
-    pub fn set(self) -> Result<(), String> {
-        let path_str = self.path.to_str().ok_or("No path set")?;
+    pub fn set(self) -> Result<(), Error> {
+        let path_str = self.path.to_str().unwrap();
 
         wallpaper_setting::set_from_path(path_str)
-            .map_err(|_| String::from("Could not set wallpaper"))
+            .map_err(|_| Error::InvalidWallpaper)
     }
 
 }
@@ -101,18 +102,18 @@ impl Wallpaper {
 
 /* Save map of tags associated with each file */
 pub fn save_wallpapers(wallpapers: &HashSet<Wallpaper>) -> io::Result<()> {
-    fs::write(wallpaper_tags_path(), serde_json::to_string_pretty(&wallpapers)?)
+    fs::write(wallpaper_tags_path()?, serde_json::to_string_pretty(&wallpapers)?)
 }
 
 /* Load map of tags associated with each file */
 pub fn load_wallpapers() -> io::Result<HashSet<Wallpaper>> {
-    let contents = fs::read_to_string(wallpaper_tags_path())?;
+    let contents = fs::read_to_string(wallpaper_tags_path()?)?;
     let parsed: Vec<Wallpaper> = serde_json::from_str(&contents)?;
 
     Ok(parsed.into_iter().collect::<HashSet<Wallpaper>>())
 }
 
 /* Helper function to get path to file of saved tags */
-fn wallpaper_tags_path() -> PathBuf {
-    files::wallpapers_path().join(WALLPAPER_TAGS_FILE)
+fn wallpaper_tags_path() -> io::Result<PathBuf> {
+    files::wallpapers_path().and_then(|path| Ok(path.join(WALLPAPER_TAGS_FILE)))
 }

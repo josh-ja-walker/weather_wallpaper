@@ -1,10 +1,10 @@
-use std::{collections::HashSet, io};
+use std::collections::HashSet;
 
 use console::Term;
 use dialoguer::{Input, MultiSelect, Select};
 use strum::IntoEnumIterator;
 
-use crate::{files, format_items, wallpaper::{self, Wallpaper}, weather::WeatherTag};
+use crate::{Error, files, format_items, wallpaper::{self, Wallpaper}, weather::WeatherTag};
 
 
 /* Edit the tags of all wallpapers */
@@ -28,7 +28,7 @@ fn edit_menu(index: usize, wallpapers: &mut Vec<Wallpaper>) {
 
     match wallpapers[index].edit_tags() {
         Ok(_) => edit_menu(index + 1, wallpapers),
-        Err(e) if e.kind() == io::ErrorKind::Interrupted => interrupted_menu(index, wallpapers),
+        Err(Error::Interrupted) => interrupted_menu(index, wallpapers),
         error => error.unwrap(), 
     }
 }
@@ -74,11 +74,9 @@ fn goto_menu(wallpapers: &mut Vec<Wallpaper>) -> usize {
     let goto_index = Input::<usize>::new()
         .with_prompt("Enter index of wallpaper to edit")
         .validate_with(|input: &usize| 
-            if *input < wallpapers.len() {
-                Ok(())
-            } else {
-                Err("out of range")
-            }
+            (*input < wallpapers.len())
+                .then_some(())
+                .ok_or(Error::InvalidInput)
         )
         .interact()
         .unwrap();
@@ -90,29 +88,25 @@ fn goto_menu(wallpapers: &mut Vec<Wallpaper>) -> usize {
 
 
 impl Wallpaper {
-    /* Edit the tags of a wallpaper */
-    fn edit_tags(&mut self) -> io::Result<()> {
+    /* Edit the tags of wallpaper */
+    fn edit_tags(&mut self) -> Result<(), Error> {
         self.print();
-    
-        let tag_options: Vec<(WeatherTag, String, bool)> = WeatherTag::iter()
-            .map(|cond| (cond.clone(), cond.to_string(), self.weather.tags().contains(&cond)))
+        
+        /* Load tag options */
+        let options: Vec<(String, bool)> = WeatherTag::iter()
+            .map(|tag| (tag.to_string(), self.weather.tags().contains(&tag)))
             .collect();
     
-        let options: Vec<(String, bool)> = tag_options
-            .iter()
-            .map(|(_, s, b)| (s.clone(), b.clone()))
-            .collect();
-    
-        let interrupt_error = io::Error::new(io::ErrorKind::Interrupted, "Control character [esc, q] pressed");
+        /* Set what weather is depicted */
         let input = MultiSelect::new()
             .with_prompt("Select weather tags")
             .items_checked(&options)
             .report(false)
             .interact_opt()
             .unwrap()
-            .ok_or(interrupt_error)?;
+            .ok_or(Error::Interrupted)?;
         
-        let interrupt_error = io::Error::new(io::ErrorKind::Interrupted, "Control character [esc, q] pressed");
+        /* Set whether day or night is depicted */
         let day_night = Select::new()
             .with_prompt("Select day or night")
             .items(&format_items(vec!["Day", "Night"]))
@@ -120,13 +114,14 @@ impl Wallpaper {
             .report(false)
             .interact_opt()
             .unwrap()
-            .ok_or(interrupt_error)?;
+            .ok_or(Error::Interrupted)?;
     
         /* Update tags */
         self.weather.set_tags(
-            input.into_iter()
-                .map(|i| tag_options[i].0.clone())
-                .collect()
+            WeatherTag::iter()
+                .enumerate()
+                .filter_map(|(i, tag)| input.contains(&i).then_some(tag))
+                .collect::<HashSet<WeatherTag>>()
         );
     
         /* Update day/night */

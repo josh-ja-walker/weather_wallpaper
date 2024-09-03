@@ -12,10 +12,11 @@ const VALID_EXTS: [&'static str; 3] = ["png", "jpg", "bmp"];
 
 /* Retrieve all wallpapers */
 pub fn load_all_wallpapers() -> HashSet<Wallpaper> {
-    let files: fs::ReadDir = fs::read_dir(wallpapers_path())
+    let files: fs::ReadDir = fs::read_dir(wallpapers_path().unwrap())
         .expect("Could not read wallpaper directory");
-
+    
     let unsaved_wallpapers = files
+        // .filter_map(|file| is_valid(&file).then_some(Wallpaper::new(file.unwrap())));
         .filter(|file| is_valid(file)) /* Remove invalid files */
         .map(|file| Wallpaper::new(file.unwrap())); /* Map to a wallpaper */
 
@@ -45,15 +46,16 @@ fn check_extension(file_path: PathBuf) -> bool {
 }
 
 /* Get wallpaper directory (nested in Picture directory) */
-pub fn wallpapers_path() -> PathBuf {
-    let wallpaper_dir: PathBuf = PathBuf::from(picture_dir().expect("No picture directory found"))
-        .join("weather_wallpapers");
+pub fn wallpapers_path() -> io::Result<PathBuf> {
+    let wallpaper_dir: PathBuf = PathBuf::from(
+        picture_dir()
+            .ok_or(io::Error::new(io::ErrorKind::NotFound, "Picture directory not found"))?
+        ).join("weather_wallpapers");
 
     /* Create wallpaper directory if it doesn't exist */
     if !&wallpaper_dir.exists() {
-        fs::create_dir(wallpaper_dir.clone())
-            .expect("Could not create wallpaper directory");
+        fs::create_dir(wallpaper_dir.clone())?;
     }
 
-    return wallpaper_dir;
+    Ok(wallpaper_dir)
 }
