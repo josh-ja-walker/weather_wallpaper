@@ -41,7 +41,7 @@ impl Display for Wallpaper {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} ({})\n Weather depicted: {}", 
             self.filename.bold(), 
-            self.path.to_str().unwrap().to_string().dimmed(),
+            self.path.display().to_string().dimmed(),
             self.weather
         )
     }

@@ -40,7 +40,8 @@ fn main() {
 
     if files::load_all_wallpapers().is_empty() {
         println!("Weather Wallpaper:");
-        println!("No wallpapers found. Add wallpapers to {}", files::wallpapers_path().unwrap().to_str().unwrap());
+        println!("No wallpapers found. Add wallpapers to {}", 
+            files::wallpapers_path().unwrap().display().to_string().bold());
         Term::stdout().read_line().unwrap();
         return;
     }
