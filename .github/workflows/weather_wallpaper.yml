@@ -20,6 +20,8 @@ jobs:
       run: cargo test --verbose
     - name: Finalise
       run: |
+        pwd
+        cd ../..
         cp target/release/weather_wallpaper.exe .
         zip weather_wallpaper.zip weather_wallpaper.exe
             
