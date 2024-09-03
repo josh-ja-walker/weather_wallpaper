@@ -235,8 +235,3 @@ pub fn get_suitable_wallpapers(valid_files: &Vec<fs::DirEntry>, weather_tags: Ve
     return suitable_paths;
 }
 
-pub fn get_rand_index <T> (suitable_wallpapers: &Vec<T>) -> usize 
-{
-    let len: usize = suitable_wallpapers.len();
-    return fastrand::usize(0..len);
-}

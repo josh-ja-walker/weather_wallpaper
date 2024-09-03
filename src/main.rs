@@ -3,8 +3,6 @@ mod files;
 
 use std::{fs, path::PathBuf, vec, thread, time, io};
 
-use wallpaper;
-// use more_wallpapers;
 use console::Term;
 use winconsole::window;
 
