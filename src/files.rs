@@ -16,7 +16,6 @@ pub fn load_all_wallpapers() -> HashSet<Wallpaper> {
         .expect("Could not read wallpaper directory");
     
     let unsaved_wallpapers = files
-        // .filter_map(|file| is_valid(&file).then_some(Wallpaper::new(file.unwrap())));
         .filter(|file| is_valid(file)) /* Remove invalid files */
         .map(|file| Wallpaper::new(file.unwrap())); /* Map to a wallpaper */
 

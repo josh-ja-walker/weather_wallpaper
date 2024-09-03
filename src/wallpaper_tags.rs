@@ -42,7 +42,7 @@ fn interrupted_menu(index: usize, wallpapers: &mut Vec<Wallpaper>) {
             "Prev",
             "Go to ",
             "Reset all tags", 
-            "Back",
+            "Back to menu",
         ]))
         .default(0)
         .report(false)

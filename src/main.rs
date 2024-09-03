@@ -61,7 +61,10 @@ fn main() {
 
         match choice {
             0 => start(&config),
-            1 => wallpaper_tags::edit_wallpaper_tags(),
+            1 => {
+                wallpaper_tags::edit_wallpaper_tags();
+                Term::stdout().clear_screen().unwrap()
+            }
             2 => settings::edit_settings(&mut config).unwrap(),
             3 => break, /* Quit */
             _ => unreachable!()
