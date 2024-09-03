@@ -20,6 +20,7 @@ jobs:
       run: cargo test
     - name: Finalise
       run: |
+        ls -a
         cp ./target/release/weather_wallpaper.exe .
         zip weather_wallpaper.zip weather_wallpaper.exe
             
