@@ -8,13 +8,16 @@ use crate::{Error, files, weather::Weather};
 const PREVIEW_WIDTH: u32 = 64;
 const PREVIEW_OFFSET: u16 = 8;
 
+const FAV_WEIGHT_MULT: usize = 2;
+
 const WALLPAPER_TAGS_FILE: &str = "wallpaper_tags.json";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Wallpaper {
     filename: String,
     path: PathBuf,
-    pub weather: Weather
+    pub weather: Weather,
+    favourited: bool
 }
 
 impl Eq for Wallpaper {}
@@ -51,7 +54,8 @@ impl AsRef<Path> for Wallpaper {
 /* Print name, path and tags of Wallpaper */
 impl Display for Wallpaper {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} ({})\n Weather depicted: {}", 
+        write!(f, "{}{} ({})\n Weather depicted: {}", 
+            self.favourited.then_some("\u{2605} ").unwrap_or(""),
             self.filename.bold(), 
             self.path.display().to_string().dimmed(),
             self.weather
@@ -68,12 +72,31 @@ impl Wallpaper {
         Wallpaper {
             filename: filename.clone(),
             path: file.path(),
-            weather: Weather::default()
+            weather: Weather::default(),
+            favourited: false,
         }
+    }
+
+    pub fn is_favourited(&self) -> bool {
+        self.favourited
+    }
+
+    pub fn toggle_favourited(&mut self) {
+        self.favourited = !self.favourited;
     }
 
     pub fn is_valid(&self) -> bool {
         self.path.exists()
+    }
+
+    pub fn get_weight(&self, weather: &Weather) -> usize {
+        let matching_tags = self.weather.tags().intersection(weather.tags()).count();
+
+        if self.favourited {
+            matching_tags * FAV_WEIGHT_MULT
+        } else {
+            matching_tags
+        }
     }
 
     /* Print info and image to console */

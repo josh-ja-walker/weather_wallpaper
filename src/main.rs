@@ -65,7 +65,7 @@ fn main() {
             1 => {
                 wallpaper_tags::edit_wallpaper_tags();
                 Term::stdout().clear_screen().unwrap()
-            }
+            },
             2 => settings::edit_settings(&mut config).unwrap(),
             3 => break, /* Quit */
             _ => unreachable!()
@@ -145,20 +145,18 @@ fn choose_wallpaper(weather: Weather, wallpapers: &HashSet<Wallpaper>) -> &Wallp
 fn weighted_choice<'a>(weather: &Weather, wallpapers: &HashSet<&'a Wallpaper>) -> Result<&'a Wallpaper, WeightedError> {
     let mut rng = rand::thread_rng();
 
-    /* Weight wallpapers by matching tags */
-    let tag_weighted: Vec<(usize, &&Wallpaper)> = wallpapers.iter()
-        .map(|w| (w.weather.tags().intersection(weather.tags()).count(), w)) 
+    /* Weight wallpapers by matching tags and favourites */
+    let weighted: Vec<(usize, &&Wallpaper)> = wallpapers.iter()
+        .map(|wallpaper| (wallpaper.get_weight(&weather), wallpaper)) 
         .collect();
 
     /* Choose random wallpaper */
-    WeightedIndex::new(tag_weighted.iter().map(|item| item.0)) 
-        .and_then(|dist| {
-            /* Get wallpaper from vec */
-            Ok(tag_weighted[dist.sample(&mut rng)].1)
-        }) 
-        .or({
-            /* Or choose equally-weighted random wallpaper */
-            wallpapers.into_iter().choose(&mut rng).ok_or(WeightedError::NoItem)
-        }) 
-        .copied() 
+    WeightedIndex::new(weighted.iter().map(|item| item.0)) 
+        .and_then(|dist| /* Get wallpaper from vec */
+            Ok(weighted[dist.sample(&mut rng)].1)
+        ).or( /* Or choose equally-weighted random wallpaper */
+            wallpapers.into_iter()
+                .choose(&mut rng)
+                .ok_or(WeightedError::NoItem)
+        ).copied() 
 }

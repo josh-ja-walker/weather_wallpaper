@@ -26,6 +26,8 @@ pub fn edit_wallpaper_tags() {
 
 /* Edit the tags of a wallpaper */
 fn edit_menu(index: usize, wallpapers: &mut Vec<Wallpaper>) {
+    Term::stdout().clear_screen().unwrap();
+    
     if index >= wallpapers.len() {
         return;
     }
@@ -43,9 +45,13 @@ fn edit_menu(index: usize, wallpapers: &mut Vec<Wallpaper>) {
 
 /* Interrupted editing of tags (skip/goto/quit) */
 fn interrupted_menu(index: usize, wallpapers: &mut Vec<Wallpaper>) {
+    let fav_item: &str = wallpapers[index].is_favourited()
+        .then_some("Unfavourite").unwrap_or("Set as favourite");
+    
     let control = Select::new()
         .with_prompt("Interrupted")
         .items(&format_items(vec![
+            fav_item,
             "Next",
             "Prev",
             "Go to ",
@@ -58,10 +64,14 @@ fn interrupted_menu(index: usize, wallpapers: &mut Vec<Wallpaper>) {
         .unwrap();
 
     let new_index = match control {
-        0 => index + 1, /* Next */
-        1 => index.checked_sub(1).unwrap_or(0), /* Prev */
-        2 => goto_menu(wallpapers), /* Goto x */ 
-        3 => { /* Clear all tags */
+        0 => { /* Toggle whether */
+            wallpapers[index].toggle_favourited(); 
+            index
+        },
+        1 => index + 1, /* Next */
+        2 => index.checked_sub(1).unwrap_or(0), /* Prev */
+        3 => goto_menu(wallpapers), /* Goto x */ 
+        4 => { /* Clear all tags */
             wallpaper::save_wallpapers(&HashSet::new()).unwrap();
 
             *wallpapers = files::load_all_wallpapers()
@@ -70,7 +80,7 @@ fn interrupted_menu(index: usize, wallpapers: &mut Vec<Wallpaper>) {
             
             wallpapers.len()
         },
-        4 => wallpapers.len(), /* Quit */
+        5 => wallpapers.len(), /* Quit */
         _ => unreachable!(),
     };
 
