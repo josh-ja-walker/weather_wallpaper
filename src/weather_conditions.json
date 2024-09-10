@@ -1,0 +1,149 @@
+{
+	"Clear": [
+		"Sun"
+	],
+	"Sunny": [
+		"Sun"
+	],
+	"Partly cloudy": [
+		"PartCloud"
+	],
+	"Cloudy": [
+		"Cloud"
+	],
+	"Overcast": [
+		"Cloud"
+	],
+	"Mist": [
+		"Fog"
+	],
+	"Patchy rain possible": [
+		"Cloud", "Rain"
+	],
+	"Patchy snow possible": [
+		"Cloud", "Snow"
+	],
+	"Patchy sleet possible": [
+		"Rain", "Snow"
+	],
+	"Patchy freezing drizzle possible": [
+		"Rain", "Snow"
+	],
+	"Thundery outbreaks possible": [
+		"Cloud", "Storm"
+	],
+	"Blowing snow": [
+		"Snow"
+	],
+	"Blizzard": [
+		"Snow"
+	],
+	"Fog": [
+		"Fog"
+	],
+	"Freezing fog": [
+		"Fog", "Snow"
+	],
+	"Patchy light drizzle": [
+		"Cloud", "Rain"
+	],
+	"Light drizzle": [
+		"Rain"
+	],
+	"Freezing drizzle": [
+		"Rain", "Snow"
+	],
+	"Heavy freezing drizzle": [
+		"Rain", "Snow"
+	],
+	"Patchy light rain": [
+		"Cloud", "Rain"
+	],
+	"Light rain": [
+		"Rain"
+	],
+	"Moderate rain at times": [
+		"Rain"
+	],
+	"Moderate rain": [
+		"Rain"
+	],
+	"Heavy rain at times": [
+		"Rain"
+	],
+	"Heavy rain": [
+		"Rain"
+	],
+	"Light freezing rain": [
+		"Rain", "Snow"
+	],
+	"Moderate or heavy freezing rain": [
+		"Rain", "Snow"
+	],
+	"Light sleet": [
+		"Rain", "Snow"
+	],
+	"Moderate or heavy sleet": [
+		"Rain", "Snow"
+	],
+	"Patchy light snow": [
+		"Snow"
+	],
+	"Light snow": [
+		"Snow"
+	],
+	"Patchy moderate snow": [
+		"Snow"
+	],
+	"Moderate snow": [
+		"Snow"
+	],
+	"Patchy heavy snow": [
+		"Snow"
+	],
+	"Heavy snow": [
+		"Snow"
+	],
+	"Ice pellets": [
+		"Snow"
+	],
+	"Light rain shower": [
+		"Rain"
+	],
+	"Moderate or heavy rain shower": [
+		"Rain"
+	],
+	"Torrential rain shower": [
+		"Rain"
+	],
+	"Light sleet showers": [
+		"Rain", "Snow"
+	],
+	"Moderate or heavy sleet showers": [
+		"Rain", "Snow"
+	],
+	"Light snow showers": [
+		"Snow"
+	],
+	"Moderate or heavy snow showers": [
+		"Snow"
+	],
+	"Light showers of ice pellets": [
+		"Snow"
+	],
+	"Moderate or heavy showers of ice pellets": [
+		"Snow"
+	],
+	"Patchy light rain with thunder": [
+		"Cloud", "Rain", "Storm"
+	],
+	"Moderate or heavy rain with thunder": [
+		"Rain", "Storm"
+	],
+	"Patchy light snow with thunder": [
+		"Storm", "Snow"
+	],
+	"Moderate or heavy snow with thunder": [
+		"Storm", "Snow"
+	]
+}

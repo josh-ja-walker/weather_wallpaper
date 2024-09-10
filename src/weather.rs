@@ -1,126 +1,137 @@
-use reqwest;
+use std::{collections::{HashMap, HashSet}, fmt::{self, Display}};
+
+use colored::Colorize;
 use serde::{Deserialize, Serialize};
+use strum_macros::EnumIter;
 
-#[derive(Debug, Serialize, Deserialize)]
-struct WeatherAPI {
-    location: Location,
-    current: Current,
+use crate::weather_api::{self, WeatherData};
+
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Weather {
+    tags: HashSet<WeatherTag>, 
+    is_day: Option<bool>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct Location {
-    name: String,
-    region: String,
-    country: String,
-    lat: f64,
-    lon: f64,
-    tz_id: String,
-    localtime_epoch: u128,
-    localtime: String,
+impl Weather {
+    pub fn is_day(&self) -> Option<bool> {
+        self.is_day
+    }
+
+    pub fn set_is_day(&mut self, is_day: Option<bool>) {
+        self.is_day = is_day
+    }
+
+    pub fn tags(&self) -> &HashSet<WeatherTag> {
+        &self.tags
+    }
+
+    pub fn set_tags(&mut self, tags: HashSet<WeatherTag>) {
+        self.tags = tags;
+    }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct Current {
-    last_updated: String,
-    temp_c: f32,
-    is_day: u8,
-
-    condition: Condition,
-
-    wind_kph: f64,
-    precip_mm: f64,
-    humidity: i16,
-    cloud: i16,
-    vis_km: f64,
-    uv: f64,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct Condition {
-    text: String,
-    icon: String,
-    code: i128,
-}
-
-#[tokio::main]
-async fn get_weather() -> Result<WeatherAPI, reqwest::Error> 
-{
-    let weather_api: WeatherAPI = reqwest::Client::new()
-    .get("http://api.weatherapi.com/v1/current.json?key=d89f01f4ac164824b2c194551221707&q=auto:ip&aqi=no")
-        .send()
-        .await?
-        .json()
-        .await?;
-
-    Ok(weather_api)
-}
-
-pub fn set_tags(weather_tags: &mut Vec<&str>) 
-{
-    let weather_api = get_weather().unwrap();
-    
-    let mut is_clear: bool = true;
-
-    if weather_api.current.vis_km <= 1.0 {
-        weather_tags.push("fog");
-    }
-
-    if weather_api.current.wind_kph > 25.0 {
-        weather_tags.push("wind");
-    }
-
-    if weather_api.current.temp_c < 5.0 
-    {
-        weather_tags.push("cold");
-    }
-    else if weather_api.current.temp_c > ( if weather_api.current.is_day != 0 {25.0} else {21.0} ) 
-    {
-        weather_tags.push("hot");
-    }
-    
-    if weather_api.current.cloud > 20
-    {
-        if weather_api.current.cloud < 60 
-        {
-            weather_tags.push("part_cl");
-        } 
-        else 
-        {
-            weather_tags.push("cloud");
-        }
-
-        is_clear = false;
-    }
-
-    if weather_api.current.precip_mm > 0.8 
-    {
-        weather_tags.push("rain");
-        is_clear = false;
-    }
-
-    if weather_api.current.is_day != 0 
-    {
-        if weather_api.current.uv > 3.75 
-        {
-            weather_tags.push("sun");
-            is_clear = false;
+/* Default weather */
+impl Default for Weather {
+    fn default() -> Self {
+        Self { 
+            tags: HashSet::new(), 
+            is_day: Some(true)
         }
     }
-    else 
-    {
-        weather_tags.push("night");
-    }
+}
 
-    if is_clear 
-    {
-        weather_tags.push("clear");
+/* Print weather conditions */
+impl Display for Weather {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} ({})", 
+            if self.tags.is_empty() {
+                String::from("none").dimmed()
+            } else {
+                self.tags.iter()
+                    .map(WeatherTag::to_string)
+                    .collect::<Vec<String>>()
+                    .join(", ")
+                    .bold()
+            },
+
+            match self.is_day {
+                Some(true) => "day",
+                Some(false) => "night",
+                None => "day/night",
+            },
+        )
+    }
+}
+
+/* Get current Weather status */
+pub fn get_current_weather() -> Weather {
+    let weather_data: WeatherData = weather_api::fetch_weather_data()
+        .expect("Could not fetch weather data from WeatherAPI.com");
+
+    Weather::from(weather_data)
+}
+
+/* Adapt WeatherData to Weather */
+impl From<WeatherData> for Weather {
+    fn from(data: WeatherData) -> Weather {
+        Weather {
+            tags: WeatherTag::parse(data.text())
+                .expect("Could not parse current weather"),
+            is_day: Option::from(data.is_day())
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, EnumIter)]
+pub enum WeatherTag { 
+    Sun,
+    PartCloud,
+    Cloud,
+    Rain,
+    Storm,
+    Fog,
+    Snow,
+}
+
+impl Display for WeatherTag {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.synonyms().join(", ").to_lowercase())
+    }
+}
+
+impl WeatherTag {
+    /* Adapt and parse WeatherAPI condition to WeatherCond */
+    fn parse(cond_text: String) -> Result<HashSet<WeatherTag>, String> {
+        let cond_map = load_conditions_map().unwrap();
+        
+        Ok(cond_map.get(&cond_text)
+        .ok_or("Could not find condition in weather_conditions.json")?
+        .into_iter()
+        .cloned()
+        .collect::<HashSet<WeatherTag>>())
     }
     
-    println!("\nCurrent Weather Tags: ");
-    for tag in weather_tags 
-    {
-        println!("\t- {}", crate::title(tag));
+    /* Synonyms for outputting */
+    pub fn synonyms(&self) -> Vec<String> {
+        match self {
+            WeatherTag::Sun => vec!["Sun", "Clear"],
+            WeatherTag::Rain => vec!["Rain", "Drizzle"],
+            WeatherTag::Cloud => vec!["Cloudy", "Overcast"],
+            WeatherTag::PartCloud => vec!["Partly Cloudy"],
+            WeatherTag::Fog => vec!["Mist", "Fog"],
+            WeatherTag::Storm => vec!["Stormy", "Thunder"],
+            WeatherTag::Snow => vec!["Snow", "Blizzard"],
+        }.into_iter()
+        .map(String::from)
+        .collect()
     }
-    println!();
+}
 
+/* Load all conditions from json file */
+fn load_conditions_map() -> std::io::Result<HashMap<String, Vec<WeatherTag>>> {
+    let contents = include_str!("weather_conditions.json");
+    let config: HashMap<String, Vec<WeatherTag>> = serde_json::from_str(&contents)?;
+    Ok(config)
 }
