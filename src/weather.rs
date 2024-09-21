@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use strum_macros::EnumIter;
 
 use crate::weather_api::{self, WeatherData};
-
+use crate::Error;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Weather {
@@ -65,11 +65,10 @@ impl Display for Weather {
 }
 
 /* Get current Weather status */
-pub fn get_current_weather() -> Weather {
-    let weather_data: WeatherData = weather_api::fetch_weather_data()
-        .expect("Could not fetch weather data from WeatherAPI.com");
+pub fn get_current_weather() -> Result<Weather, Error> {
+    let weather_data: WeatherData = weather_api::fetch_weather_data()?;
 
-    Weather::from(weather_data)
+    Ok(Weather::from(weather_data))
 }
 
 /* Adapt WeatherData to Weather */
@@ -107,7 +106,7 @@ impl WeatherTag {
         let cond_map = load_conditions_map().unwrap();
         
         Ok(cond_map.get(&cond_text)
-        .ok_or("Could not find condition in weather_conditions.json")?
+        .ok_or(format!("Could not find condition {cond_text} in weather_conditions.json"))?
         .into_iter()
         .cloned()
         .collect::<HashSet<WeatherTag>>())

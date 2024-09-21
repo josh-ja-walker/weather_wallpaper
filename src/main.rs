@@ -29,11 +29,19 @@ use weather::Weather;
 
 #[derive(Display, Debug)]
 pub enum Error {
+    WeatherFetchFail,
     InvalidWallpaper,
     ImagePrintFail,
     Interrupted,
     InvalidInput,
 }
+
+impl From<reqwest::Error> for Error {
+    fn from(_err: reqwest::Error) -> Self {
+        Error::WeatherFetchFail 
+    }
+}
+
 
 fn main() {
     let mut config = settings::load_settings().unwrap_or_default();
@@ -88,11 +96,21 @@ fn start(config: &Config) {
         Term::stdout().clear_screen().unwrap();
         println!("{}", "Weather Wallpaper:".bold());
 
-        let curr_weather: Weather = weather::get_current_weather();
-        println!("Current Weather: {}", curr_weather);
+        let fetch_weather: Result<Weather, Error> = weather::get_current_weather();
+
+        let chosen: &Wallpaper = match fetch_weather {
+            Ok(curr_weather) => {
+                println!("Current Weather: {}", curr_weather);
+                choose_wallpaper(curr_weather, &wallpapers)
+            },
+            Err(Error::WeatherFetchFail) => {
+                println!("No weather found; choosing random wallpaper");
+                rand_choice(&wallpapers.iter().collect::<HashSet<&Wallpaper>>())
+            },
+            _ => unreachable!("API fetch returned unrecoverable error")
+        };
     
         print!("Chosen: ");
-        let chosen: &Wallpaper = choose_wallpaper(curr_weather, &wallpapers);
         chosen.print();
         chosen.set().unwrap();
 
@@ -151,12 +169,17 @@ fn weighted_choice<'a>(weather: &Weather, wallpapers: &HashSet<&'a Wallpaper>) -
         .collect();
 
     /* Choose random wallpaper */
-    WeightedIndex::new(weighted.iter().map(|item| item.0)) 
-        .and_then(|dist| /* Get wallpaper from vec */
-            Ok(weighted[dist.sample(&mut rng)].1)
-        ).or( /* Or choose equally-weighted random wallpaper */
-            wallpapers.into_iter()
-                .choose(&mut rng)
-                .ok_or(WeightedError::NoItem)
-        ).copied() 
+    match WeightedIndex::new(weighted.iter().map(|item| item.0)) {
+        /* Get wallpaper from vec */
+        Ok(dist) => Ok(weighted[dist.sample(&mut rng)].1),
+        /* Or choose equally-weighted random wallpaper */
+        Err(WeightedError::AllWeightsZero) => Ok(rand_choice(wallpapers)),
+        Err(err) => Err(err),
+    }
+}
+
+/* Choose equally weighted random choice */
+fn rand_choice<'a>(wallpapers: &HashSet<&'a Wallpaper>) -> &'a Wallpaper {
+    let mut rng = rand::thread_rng();
+    wallpapers.iter().choose(&mut rng).expect("No wallpapers found")
 }
